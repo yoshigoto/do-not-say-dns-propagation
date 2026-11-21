@@ -15,7 +15,6 @@ function render() {
   $('#scenario-description').textContent = isAddress
     ? '同じ権威サーバーで、Web サーバーのアドレスを変更します。'
     : '親ゾーンの委任先を変更。旧権威は古い答え、新権威は新しい答えを返します。';
-  $('#type-label').textContent = state.type;
   $('#clock').textContent = `${String(Math.floor(state.time / 60)).padStart(2, '0')}:${String(state.time % 60).padStart(2, '0')}`;
   const browserCache = [
     cacheText(state.browserDns, 'DNS解決結果'),
@@ -23,23 +22,13 @@ function render() {
       ? `HTTP: ${state.browserHttp.value.page} · 残り ${remaining(state.browserHttp, state.time)}秒`
       : 'HTTP: なし / 期限切れ'
   ];
-  $('#browser-status').replaceChildren(...browserCache.map(line));
   $('[data-browser-cache]').replaceChildren(...browserCache.map(line));
   const delegation = state.resolverDelegation && remaining(state.resolverDelegation, state.time)
     ? `${state.resolverDelegation.value === 'old' ? '旧' : '新'}権威 · 残り ${remaining(state.resolverDelegation, state.time)}秒`
     : 'なし / 期限切れ';
   const resolverCache = [cacheText(state.resolverAddress, state.type), `委任先: ${delegation}`];
-  $('#resolver-status').replaceChildren(...resolverCache.map(line));
   $('[data-resolver-cache]').replaceChildren(...resolverCache.map(line));
-  $('#authority-description').textContent = isAddress ? '権威ゾーンの現在の答え' : '親ゾーンの現在の委任先';
-  $('#authority-status').replaceChildren(...(isAddress
-    ? [`${state.type}: ${ADDRESSES[state.type][state.changed ? 'new' : 'old']}`, '委任先: 変更なし']
-    : [`委任先: ${state.changed ? '新' : '旧'}権威`, `旧: ${ADDRESSES[state.type].old}`, `新: ${ADDRESSES[state.type].new}`]
-  ).map(line));
   renderRecordDisplay(isAddress);
-  $('#web-status').replaceChildren(...(state.result
-    ? [state.result.page, state.result.address, `表示元: ${state.result.source}`]
-    : ['まだアクセスしていません']).map(line));
   renderWebPreview();
   $('#change').disabled = state.changed;
   $('#change span').textContent = state.changed ? '変更済み' : '設定を変更する';
