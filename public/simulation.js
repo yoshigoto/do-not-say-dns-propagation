@@ -34,7 +34,7 @@ export function change(state) {
     actor: 'DNS 管理者',
     text: state.scenario === 'address'
       ? `Web サーバーの IP アドレスの変更に合わせ、権威サーバーの ${state.type} リソースレコードを更新しました。既存のキャッシュは書き換わりません。`
-      : '親ゾーンの NS リソースレコードを変更し、新しい権威サーバーに委任しました。委任情報をキャッシュしているフルサービスリゾルバーは、期限が切れるまで旧サーバーを使うことがあります。'
+      : '親ゾーンの NS リソースレコードを変更し、新しい権威サーバーに委任しました。旧委任先をキャッシュしているフルサービスリゾルバーは、その期限が切れるまで旧権威サーバーに問い合わせることがあります。'
   }]);
 }
 
@@ -51,7 +51,7 @@ export function clearBrowser(state) {
   state.browserHttp = null;
   setActivities(state, [{
     actor: '利用者',
-    text: 'ブラウザーの DNS キャッシュと HTTP キャッシュを消去しました。フルサービスリゾルバーのキャッシュは残っています。'
+    text: 'ブラウザーの DNS キャッシュと HTTP キャッシュを消去しました。フルサービスリゾルバーのキャッシュには影響しません。'
   }]);
 }
 
@@ -59,12 +59,11 @@ export function clearHttp(state) {
   state.browserHttp = null;
   setActivities(state, [{
     actor: '利用者',
-    text: 'ブラウザーの HTTP キャッシュだけを消去しました。DNS キャッシュは残っています。'
+    text: 'ブラウザーの HTTP キャッシュだけを消去しました。DNS キャッシュには影響しません。'
   }]);
 }
 
 export function request(state) {
-  const events = [];
   const activities = [];
   if (valid(state.browserHttp, state.time)) {
     state.result = { ...state.browserHttp.value, source: 'HTTP キャッシュ', reason: 'http' };
@@ -77,53 +76,54 @@ export function request(state) {
 
   let address;
   let cacheReason = 'authoritative';
+  const httpMiss = 'HTTP キャッシュは空または期限切れです。';
   if (valid(state.browserDns, state.time)) {
     address = state.browserDns.value;
     cacheReason = 'browser-dns';
-    const text = `ブラウザーの DNS キャッシュが有効です。ブラウザーの DNS キャッシュから ${address} を使用しました。`;
-    events.push(text);
+    const text = `${httpMiss} DNS キャッシュは有効なので、保存されている ${address} を使います。`;
     activities.push({ actor: 'ブラウザー', text });
   } else {
-    const text = 'DNS キャッシュは空または期限切れです。フルサービスリゾルバーに問い合わせます。';
-    events.push(text);
+    const text = `${httpMiss} DNS キャッシュも空または期限切れです。フルサービスリゾルバーに問い合わせます。`;
     activities.push({ actor: 'ブラウザー', text });
     if (valid(state.resolverAddress, state.time)) {
       address = state.resolverAddress.value;
       cacheReason = 'resolver';
-      const text = `${state.type} キャッシュが有効です。キャッシュされた ${address} をブラウザーに応答しました。`;
-      events.push(text);
+      const text = `${state.type} キャッシュが有効です。保存されている ${address} をブラウザーに返しました。`;
       activities.push({ actor: 'フルサービスリゾルバー', text });
     } else {
-      let authority;
-      if (valid(state.resolverDelegation, state.time)) {
-        authority = state.resolverDelegation.value;
-        const text = `${state.type} キャッシュは空または期限切れです。委任情報は有効なので、キャッシュされた${authority === 'old' ? '旧' : '新'}権威サーバーに問い合わせます。`;
-        events.push(text);
-        activities.push({ actor: 'フルサービスリゾルバー', text });
+      let authorityLabel = '権威サーバー';
+      let isNew = state.changed;
+      const addressMiss = `${state.type} キャッシュは空または期限切れです。`;
+      let lookupText;
+      if (state.scenario === 'address') {
+        lookupText = `${addressMiss} このシナリオでは同じ権威サーバーに問い合わせます。`;
       } else {
-        authority = state.scenario === 'delegation' && state.changed ? 'new' : 'old';
-        state.resolverDelegation = { value: authority, expires: state.time + TTL.delegation };
-        const text = `${state.type} キャッシュと委任情報は空または期限切れです。親ゾーンの委任先を確認し、${authority === 'old' ? '旧' : '新'}権威サーバーをキャッシュして問い合わせます。`;
-        events.push(text);
-        activities.push({ actor: 'フルサービスリゾルバー', text });
+        const cachedDelegation = valid(state.resolverDelegation, state.time);
+        const authority = cachedDelegation ? state.resolverDelegation.value : (state.changed ? 'new' : 'old');
+        authorityLabel = authority === 'old' ? '旧権威サーバー' : '新権威サーバー';
+        isNew = state.changed && authority === 'new';
+        if (!cachedDelegation) {
+          state.resolverDelegation = { value: authority, expires: state.time + TTL.delegation };
+        }
+        lookupText = cachedDelegation
+          ? `${addressMiss} 委任キャッシュは有効なので、保存されている委任先（${authorityLabel}）に問い合わせます。`
+          : `${addressMiss} 委任キャッシュも空または期限切れです。親ゾーンから取得した委任情報を ${TTL.delegation} 秒間キャッシュし、委任先（${authorityLabel}）に問い合わせます。`;
       }
-      const isNew = state.changed && (state.scenario === 'address' || authority === 'new');
+      activities.push({ actor: 'フルサービスリゾルバー', text: lookupText });
       address = ADDRESSES[state.type][isNew ? 'new' : 'old'];
+      activities.push({ actor: authorityLabel, text: `フルサービスリゾルバーからの問い合わせに応答し、${state.type} ${address} を返しました。` });
       state.resolverAddress = { value: address, expires: state.time + TTL.address };
-      const text = `${authority === 'old' ? '旧' : '新'}権威サーバーからの問い合わせに対し、${state.type} ${address} を応答しました。フルサービスリゾルバーは ${TTL.address} 秒保存します。`;
-      events.push(text);
-      activities.push({ actor: '権威サーバー', text });
+      activities.push({ actor: 'フルサービスリゾルバー', text: `受け取った応答を ${TTL.address} 秒間キャッシュし、ブラウザーに返しました。` });
     }
     state.browserDns = { value: address, expires: state.time + TTL.browserDns };
-    const browserCacheText = `DNS の応答 ${address} をブラウザーに返し、ブラウザーは ${TTL.browserDns} 秒保存します。`;
-    events.push(browserCacheText);
+    const browserCacheText = `DNS の応答 ${address} を受け取り、この情報をブラウザーの DNS キャッシュに ${TTL.browserDns} 秒間保存します。`;
     activities.push({ actor: 'ブラウザー', text: browserCacheText });
   }
-  const page = address === ADDRESSES[state.type].new ? '新しいサーバー' : '古いサーバー';
+  const pageAge = address === ADDRESSES[state.type].new ? '新しい' : '古い';
+  const page = `${pageAge}サーバー`;
   state.result = { address, page, source: 'Web サーバー', reason: cacheReason };
   state.browserHttp = { value: { address, page }, expires: state.time + TTL.browserHttp };
-  const text = `${address} に接続し、${page}のページを取得しました。ブラウザーは HTTP キャッシュに ${TTL.browserHttp} 秒保存します。`;
-  events.push(text);
-  activities.push({ actor: 'Web サーバー', text });
+  const text = `Web サーバーの IP アドレス ${address} に接続し、${pageAge}ページを取得しました。このページを HTTP キャッシュに ${TTL.browserHttp} 秒間保存します。`;
+  activities.push({ actor: 'ブラウザー', text });
   setActivities(state, activities);
 }

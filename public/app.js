@@ -15,6 +15,12 @@ function render() {
   $('#scenario-description').textContent = isAddress
     ? 'Web サーバーの IP アドレスを変更し、同じ権威サーバー上の A / AAAA リソースレコードを更新します。'
     : '親ゾーンの NS リソースレコードを変更します。この例では旧権威サーバーが古い応答、新権威サーバーが新しい応答を返します。';
+  $('#resolver-description').textContent = isAddress
+    ? '名前解決結果をキャッシュ'
+    : '名前解決結果と委任情報をキャッシュ';
+  $('#record-heading').innerHTML = isAddress
+    ? '権威サーバーの <span>A/AAAA</span> リソースレコード'
+    : '親ゾーンの委任先と <span>A/AAAA</span> の応答例';
   $('#clock').textContent = `${String(Math.floor(state.time / 60)).padStart(2, '0')}:${String(state.time % 60).padStart(2, '0')}`;
   const browserCache = [
     cacheText(state.browserDns, '名前解決結果'),

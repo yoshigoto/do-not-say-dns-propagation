@@ -30,14 +30,18 @@ test('cached delegation can fetch an old answer even after the address TTL expir
   request(state);
   assert.equal(state.result.address, ADDRESSES.A.old);
   assert.equal(remaining(state.resolverDelegation, state.time), TTL.delegation - TTL.address);
+  assert.equal(state.activities[2].actor, '旧権威サーバー');
   advance(state, TTL.delegation - TTL.address);
   clearBrowser(state);
   request(state);
   assert.equal(state.result.address, ADDRESSES.A.old);
+  assert.equal(state.activities.some(activity => activity.actor.endsWith('権威サーバー')), false);
   advance(state, TTL.address - (TTL.delegation - TTL.address));
   clearBrowser(state);
   request(state);
   assert.equal(state.result.address, ADDRESSES.A.new);
+  assert.match(state.activities[1].text, /親ゾーンから取得した委任情報.*新権威サーバー/);
+  assert.equal(state.activities[2].actor, '新権威サーバー');
 });
 
 test('browser DNS cache and HTTP cache are independent of resolver cache', () => {
@@ -65,7 +69,7 @@ test('clearing only HTTP cache exposes a browser DNS cache hit', () => {
   clearHttp(state);
   request(state);
   assert.equal(state.result.address, ADDRESSES.A.old);
-  assert.match(state.events[0], /ブラウザーの DNS キャッシュから/);
+  assert.match(state.events[0], /HTTP キャッシュは空または期限切れです。 DNS キャッシュは有効/);
   assert.equal(remaining(state.resolverAddress, state.time), TTL.address);
 });
 
@@ -80,11 +84,11 @@ test('activity records include the actor that performed each operation', () => {
 });
 
 test('cache status and its corresponding action are in the same activity', () => {
-  const state = createSimulation();
+  const state = createSimulation('delegation');
   request(state);
   assert.ok(state.activities.some(activity =>
     activity.actor === 'ブラウザー' &&
-    /DNS キャッシュは空または期限切れです/.test(activity.text) &&
+    /DNS キャッシュも空または期限切れです/.test(activity.text) &&
     /フルサービスリゾルバーに問い合わせます/.test(activity.text)
   ));
   clearBrowser(state);
@@ -94,6 +98,83 @@ test('cache status and its corresponding action are in the same activity', () =>
   assert.ok(state.activities.some(activity =>
     activity.actor === 'フルサービスリゾルバー' &&
     /キャッシュは空または期限切れです/.test(activity.text) &&
-    /権威サーバーに問い合わせます/.test(activity.text)
+    /旧権威サーバー）に問い合わせます/.test(activity.text)
   ));
+});
+
+test('address change does not mention parent delegation', () => {
+  const state = createSimulation('address');
+  change(state);
+  request(state);
+  advance(state, TTL.address);
+  clearBrowser(state);
+  request(state);
+
+  assert.ok(state.activities.some(activity =>
+    activity.actor === 'フルサービスリゾルバー' &&
+    /キャッシュは空または期限切れです/.test(activity.text) &&
+    /同じ権威サーバーに問い合わせます/.test(activity.text)
+  ));
+  assert.ok(state.activities.every(({ actor, text }) => !/親ゾーン|委任|[旧新]権威サーバー/.test(`${actor} ${text}`)));
+});
+
+test('delegation mode pairs address cache status with authority delegation', () => {
+  const state = createSimulation('delegation');
+  request(state);
+  change(state);
+  advance(state, TTL.address);
+  clearBrowser(state);
+  request(state);
+
+  assert.ok(state.activities.some(activity =>
+    activity.actor === 'フルサービスリゾルバー' &&
+    /キャッシュは空または期限切れです/.test(activity.text) &&
+    /委任キャッシュは有効なので/.test(activity.text) &&
+    /旧権威サーバー）に問い合わせます/.test(activity.text)
+  ));
+});
+
+test('authoritative answer identifies the resolver as the requester', () => {
+  const state = createSimulation('address');
+  request(state);
+
+  assert.ok(state.activities.some(activity =>
+    activity.actor === '権威サーバー' &&
+    /フルサービスリゾルバーからの問い合わせに応答/.test(activity.text)
+  ));
+});
+
+test('browser connects and fetches the page after a reset', () => {
+  let state = createSimulation();
+  state = createSimulation(state.scenario, state.type);
+  request(state);
+
+  assert.ok(state.activities.some(activity =>
+    activity.actor === 'ブラウザー' &&
+    /に接続し/.test(activity.text) &&
+    /古いページを取得しました/.test(activity.text)
+  ));
+  assert.ok(state.activities.every(activity => activity.actor !== 'Web サーバー'));
+});
+
+test('DNS answer, forwarding and caching are logged once in order by their actors', () => {
+  for (const [scenario, authority] of [['address', '権威サーバー'], ['delegation', '旧権威サーバー']]) {
+    const state = createSimulation(scenario);
+    request(state);
+    const [, , answer, forward, receive] = state.activities;
+    assert.equal(answer.actor, authority);
+    assert.doesNotMatch(answer.text, /キャッシュ|ブラウザー/);
+    assert.equal(forward.actor, 'フルサービスリゾルバー');
+    assert.match(forward.text, /応答を .* 秒間キャッシュし、ブラウザーに返しました/);
+    assert.equal(receive.actor, 'ブラウザー');
+    assert.match(receive.text, /DNS の応答.*を受け取り.*DNS キャッシュに/);
+    assert.equal(state.activities.filter(({ text }) => text.includes('ブラウザーに返しました')).length, 1);
+
+    clearBrowser(state);
+    request(state);
+    assert.deepEqual(state.activities.map(({ actor }) => actor), [
+      'ブラウザー', 'フルサービスリゾルバー', 'ブラウザー', 'ブラウザー'
+    ]);
+    assert.match(state.activities[1].text, /キャッシュが有効です。.*ブラウザーに返しました/);
+  }
 });
