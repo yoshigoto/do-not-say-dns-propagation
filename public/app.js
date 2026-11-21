@@ -83,7 +83,9 @@ function renderWebPreview() {
       : 'ブラウザーの DNS キャッシュが古いアドレスを指しているため、古い表示のままです。';
     $('#web-preview-cache').textContent = 'BROWSER DNS CACHE';
   } else if (result.reason === 'resolver') {
-    $('#web-preview-explanation').textContent = 'フルサービスリゾルバのキャッシュが有効なため、古い答えのまま表示しています。';
+    $('#web-preview-explanation').textContent = isNew
+      ? 'フルサービスリゾルバのキャッシュが新しいアドレスを指しているため、新しい表示になっています。'
+      : 'フルサービスリゾルバのキャッシュが有効なため、古い答えのまま表示しています。';
     $('#web-preview-cache').textContent = 'RESOLVER CACHE HIT';
   } else if (isNew) {
     $('#web-preview-explanation').textContent = 'キャッシュが期限切れになり、権威サーバーから新しい答えを取得しました。';
