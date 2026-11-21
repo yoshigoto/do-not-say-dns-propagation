@@ -9,9 +9,11 @@ test('address change keeps old cached answers until they expire for A and AAAA',
     change(state);
     request(state);
     assert.equal(state.result.source, 'HTTP キャッシュ');
+    assert.equal(state.result.reason, 'http');
     clearBrowser(state);
     request(state);
     assert.equal(state.result.address, ADDRESSES[type].old);
+    assert.equal(state.result.reason, 'resolver');
     advance(state, TTL.address);
     clearBrowser(state);
     request(state);
