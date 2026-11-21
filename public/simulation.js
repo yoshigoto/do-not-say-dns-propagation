@@ -24,8 +24,8 @@ export function change(state) {
   if (state.changed) return;
   state.changed = true;
   state.events = [state.scenario === 'address'
-    ? `権威サーバーの ${state.type} レコードを新しいアドレスに変更しました。既存のキャッシュは書き換わりません。`
-    : '親ゾーンの委任先を新しい権威サーバーに変更しました。古い権威サーバーは古い答えを返し続けます。'];
+    ? `Web サーバーの IP 変更に合わせ、権威サーバーの ${state.type} レコードを更新しました。既存のキャッシュは書き換わりません。`
+    : '親ゾーンの NS 委任先を新しい権威サーバーに変更しました。委任情報をキャッシュしているリゾルバは、期限が切れるまで旧サーバーを使うことがあります。'];
 }
 
 export function advance(state, seconds) {

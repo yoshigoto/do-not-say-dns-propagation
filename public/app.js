@@ -11,10 +11,10 @@ function cacheText(entry, label) {
 
 function render() {
   const isAddress = state.scenario === 'address';
-  $('#scenario-title').textContent = isAddress ? 'アドレスの変更' : '権威サーバーの移転';
+  $('#scenario-title').textContent = isAddress ? 'Web サーバーの IP 変更' : '権威サーバーの移転';
   $('#scenario-description').textContent = isAddress
-    ? '同じ権威サーバーで、Web サーバーのアドレスを変更します。'
-    : '親ゾーンの委任先を変更。旧権威は古い答え、新権威は新しい答えを返します。';
+    ? 'Web サーバーの IP を変え、同じ権威サーバー上の A / AAAA レコードを更新します。'
+    : '親ゾーンの NS 委任先を変更します。この例では旧権威が古い答え、新権威が新しい答えを返します。';
   $('#clock').textContent = `${String(Math.floor(state.time / 60)).padStart(2, '0')}:${String(state.time % 60).padStart(2, '0')}`;
   const browserCache = [
     cacheText(state.browserDns, 'DNS解決結果'),
@@ -31,7 +31,7 @@ function render() {
   $('[data-resolver-cache]').replaceChildren(...resolverCache.map(line));
   $('#record-description').textContent = isAddress
     ? ''
-    : '権威サーバーの移転では、変更するのは親ゾーンの委任情報（旧・新権威サーバーに関する情報）です。上の A / AAAA レコードは、「旧権威」が古い答えを、「新権威」が新しい答えを返していることを示しています。';
+    : '変更するのは親ゾーンの NS 委任情報です。上の A / AAAA は移転時に変更するレコードではなく、旧・新権威サーバーが返す例です。このデモでは NS 委任とグルーを 1 つのキャッシュとして扱い、旧権威が古い答えを返し続ける場合を示します。';
   renderRecordDisplay(isAddress);
   renderWebPreview();
   $('#change').disabled = state.changed;
