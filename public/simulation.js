@@ -47,19 +47,22 @@ export function clearHttp(state) {
 export function request(state) {
   const events = [];
   if (valid(state.browserHttp, state.time)) {
-    state.result = { ...state.browserHttp.value, source: 'HTTP キャッシュ' };
+    state.result = { ...state.browserHttp.value, source: 'HTTP キャッシュ', reason: 'http' };
     state.events = ['ブラウザーの HTTP キャッシュが有効なので、DNS 問い合わせもサーバーへの通信も行わず、保存されたページを表示しました。'];
     return;
   }
 
   let address;
+  let cacheReason = 'authoritative';
   if (valid(state.browserDns, state.time)) {
     address = state.browserDns.value;
+    cacheReason = 'browser-dns';
     events.push(`ブラウザーの DNS キャッシュから ${address} を使用。`);
   } else {
     events.push('ブラウザーの DNS キャッシュは空または期限切れ。リゾルバに問い合わせます。');
     if (valid(state.resolverAddress, state.time)) {
       address = state.resolverAddress.value;
+      cacheReason = 'resolver';
       events.push(`リゾルバの ${state.type} キャッシュから ${address} を返答。`);
     } else {
       events.push(`リゾルバの ${state.type} キャッシュは空または期限切れ。`);
@@ -81,7 +84,7 @@ export function request(state) {
     events.push(`ブラウザーに DNS の答えを ${TTL.browserDns} 秒保存。`);
   }
   const page = address === ADDRESSES[state.type].new ? '新しいサーバー' : '古いサーバー';
-  state.result = { address, page, source: 'Web サーバー' };
+  state.result = { address, page, source: 'Web サーバー', reason: cacheReason };
   state.browserHttp = { value: { address, page }, expires: state.time + TTL.browserHttp };
   events.push(`${address} に接続し、${page}のページを取得。HTTP キャッシュに ${TTL.browserHttp} 秒保存。`);
   state.events = events;

@@ -73,9 +73,17 @@
       </div>
       <div class="learn-panel">
         <div class="section-label"><span>✳</span> KEY TAKEAWAY</div>
-        <h2>「浸透」ではなく、<br>キャッシュの期限切れ。</h2>
-        <p>変更は権威側に反映されますが、問い合わせ側は TTL が残る間、以前の答えを使うことがあります。見る場所やタイミングによって答えが違うのはそのためです。</p>
-        <div class="learn-footer">CACHE ≠ PROPAGATION <span>↗</span></div>
+        <h2>今、ブラウザーに見えているページ</h2>
+        <div class="web-preview" id="web-preview" aria-live="polite">
+          <div class="web-preview-bar"><span></span><span></span><span></span><div>www.example.com</div></div>
+          <div class="web-preview-content">
+            <span class="web-preview-status" id="web-preview-status">未アクセス</span>
+            <strong id="web-preview-page">Waiting...</strong>
+            <small id="web-preview-address">サイトにアクセスすると表示例が更新されます。</small>
+          </div>
+        </div>
+        <p id="web-preview-explanation">まだアクセスしていません。</p>
+        <div class="learn-footer"><span id="web-preview-cache">CACHE ≠ PROPAGATION</span><span>↗</span></div>
       </div>
     </section>
     <section class="details">

@@ -35,6 +35,7 @@ function render() {
   $('#web-status').replaceChildren(...(state.result
     ? [state.result.page, state.result.address, `表示元: ${state.result.source}`]
     : ['まだアクセスしていません']).map(line));
+  renderWebPreview();
   $('#change').disabled = state.changed;
   $('#change span').textContent = state.changed ? '変更済み' : '設定を変更する';
   $$('#events li').forEach(item => item.remove());
@@ -49,6 +50,48 @@ function render() {
   });
   $$('[data-scenario]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.scenario === state.scenario)));
   $$('[data-type]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.type === state.type)));
+}
+
+function renderWebPreview() {
+  const preview = $('#web-preview');
+  const result = state.result;
+  if (!result) {
+    preview.dataset.page = 'waiting';
+    $('#web-preview-status').textContent = '未アクセス';
+    $('#web-preview-page').textContent = 'Waiting...';
+    $('#web-preview-address').textContent = 'サイトにアクセスすると表示例が更新されます。';
+    $('#web-preview-explanation').textContent = 'まだアクセスしていません。';
+    $('#web-preview-cache').textContent = 'CACHE ≠ PROPAGATION';
+    return;
+  }
+
+  const isNew = result.address === ADDRESSES[state.type].new;
+  preview.dataset.page = isNew ? 'new' : 'old';
+
+  $('#web-preview-status').textContent = result.source === 'HTTP キャッシュ'
+    ? 'HTTP キャッシュ'
+    : 'Web サーバーから取得';
+  $('#web-preview-page').textContent = isNew ? 'New page' : 'Old page';
+  $('#web-preview-address').textContent = `${state.type} ${result.address}`;
+
+  if (result.reason === 'http') {
+    $('#web-preview-explanation').textContent = 'HTTP キャッシュが有効なので、DNS 問い合わせもせず保存された表示をそのまま見ています。';
+    $('#web-preview-cache').textContent = 'HTTP CACHE HIT';
+  } else if (result.reason === 'browser-dns') {
+    $('#web-preview-explanation').textContent = isNew
+      ? 'ブラウザーの DNS キャッシュが新しいアドレスを指しているため、新しい表示になっています。'
+      : 'ブラウザーの DNS キャッシュが古いアドレスを指しているため、古い表示のままです。';
+    $('#web-preview-cache').textContent = 'BROWSER DNS CACHE';
+  } else if (result.reason === 'resolver') {
+    $('#web-preview-explanation').textContent = 'フルサービスリゾルバのキャッシュが有効なため、古い答えのまま表示しています。';
+    $('#web-preview-cache').textContent = 'RESOLVER CACHE HIT';
+  } else if (isNew) {
+    $('#web-preview-explanation').textContent = 'キャッシュが期限切れになり、権威サーバーから新しい答えを取得しました。';
+    $('#web-preview-cache').textContent = 'CACHE EXPIRED → NEW';
+  } else {
+    $('#web-preview-explanation').textContent = 'キャッシュまたは古い委任先により、権威サーバーから古い答えを取得しました。';
+    $('#web-preview-cache').textContent = 'OLD ANSWER STILL CACHED';
+  }
 }
 
 function line(text) {
