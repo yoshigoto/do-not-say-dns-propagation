@@ -78,7 +78,7 @@
           <section class="resolver-panel" aria-labelledby="resolver-heading">
             <div class="section-label"><span>◈</span> RECURSIVE DNS</div>
             <h2 id="resolver-heading">フルサービスリゾルバー</h2>
-            <p>名前解決結果と委任情報をキャッシュ</p>
+            <p id="resolver-description">名前解決結果をキャッシュ</p>
             <div class="cache-summary resolver-summary">
               <div class="cache-summary-heading">キャッシュ状態</div>
               <div class="cache-summary-status" data-resolver-cache aria-live="polite"></div>
@@ -109,7 +109,7 @@
       <h2>このデモのしくみ <span> / BEHIND THE SCENES</span></h2>
       <div class="detail-grid">
         <p><strong>01 / フルサービスリゾルバーのキャッシュ</strong>IP アドレスのリソースレコードの TTL は 120 秒、委任情報の TTL は 180 秒。委任情報が古いと、IP アドレスを再取得しても旧権威サーバーから古い応答を受け取ることがあります。このデモでは NS リソースレコードによる委任とグルーレコードを 1 つのキャッシュとして簡略化しています。</p>
-        <p><strong>02 / ブラウザーのキャッシュ</strong>ブラウザーはドメイン名自体ではなく、名前解決で得た IP アドレスをキャッシュする場合があります。このモデルでは DNS の応答を 30 秒、HTTP のページを 90 秒保存します。HTTP キャッシュが有効なら DNS に問い合わせずページを表示します。実際にはブラウザー内部のキャッシュ、OS の DNS キャッシュ、接続再利用の挙動が重なり、保持時間も製品や設定によって異なります。ブラウザーのキャッシュを消去してもフルサービスリゾルバーのキャッシュは残ります。</p>
+        <p><strong>02 / ブラウザーのキャッシュ</strong>ブラウザーはドメイン名自体ではなく、名前解決で得た IP アドレスをキャッシュする場合があります。このモデルでは DNS の応答を 30 秒間、HTTP のページを 90 秒間保存します。HTTP キャッシュが有効なら DNS に問い合わせずページを表示します。実際にはブラウザー内部のキャッシュ、OS の DNS キャッシュ、接続再利用の挙動が重なり、保持時間も製品や設定によって異なります。ブラウザーのキャッシュを消去してもフルサービスリゾルバーのキャッシュは残います。</p>
         <p><strong>03 / 実際の運用では</strong>TTL やブラウザーのキャッシュ・接続再利用の挙動は製品や設定によって異なります。移転前に新サーバーのゾーンデータを整え、旧・新サーバーの応答を揃えましょう。親ゾーンの委任情報、必要なグルーレコード、各リソースレコードの TTL も考慮します。</p>
       </div>
     </section>

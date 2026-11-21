@@ -15,6 +15,12 @@ function render() {
   $('#scenario-description').textContent = isAddress
     ? 'Web サーバーの IP アドレスを変更し、同じ権威サーバー上の A / AAAA リソースレコードを更新します。'
     : '親ゾーンの NS リソースレコードを変更します。この例では旧権威サーバーが古い応答、新権威サーバーが新しい応答を返します。';
+  $('#resolver-description').textContent = isAddress
+    ? '名前解決結果をキャッシュ'
+    : '名前解決結果と委任情報をキャッシュ';
+  $('#record-heading').innerHTML = isAddress
+    ? '権威サーバーの <span>A/AAAA</span> リソースレコード'
+    : '親ゾーンの委任先と <span>A/AAAA</span> の応答例';
   $('#clock').textContent = `${String(Math.floor(state.time / 60)).padStart(2, '0')}:${String(state.time % 60).padStart(2, '0')}`;
   const browserCache = [
     cacheText(state.browserDns, '名前解決結果'),
@@ -37,13 +43,21 @@ function render() {
   $('#change').disabled = state.changed;
   $('#change span').textContent = state.changed ? '変更済み' : '設定を変更する';
   $$('#events li').forEach(item => item.remove());
-  state.events.forEach((event, index) => {
+  const activities = state.activities || state.events.map(text => ({ actor: 'シミュレーター', text }));
+  activities.forEach((activity, index) => {
     const item = document.createElement('li');
     const number = document.createElement('span');
+    number.className = 'event-number';
     number.textContent = String(index + 1).padStart(2, '0');
+    const actor = document.createElement('span');
+    actor.className = 'event-actor';
+    actor.textContent = activity.actor;
+    const content = document.createElement('div');
+    content.className = 'event-content';
     const text = document.createElement('p');
-    text.textContent = event;
-    item.append(number, text);
+    text.textContent = activity.text;
+    content.append(text);
+    item.append(number, actor, content);
     $('#events').append(item);
   });
   $$('[data-scenario]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.scenario === state.scenario)));
