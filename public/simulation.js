@@ -96,7 +96,7 @@ export function request(state) {
       const addressMiss = `${state.type} キャッシュは空または期限切れです。`;
       let lookupText;
       if (state.scenario === 'address') {
-        lookupText = `${addressMiss} このシナリオでは同じ権威サーバーに問い合わせます。`;
+        lookupText = `${addressMiss} 同じ権威サーバーに ${state.type} を問い合わせます。`;
       } else {
         const cachedDelegation = valid(state.resolverDelegation, state.time);
         const authority = cachedDelegation ? state.resolverDelegation.value : (state.changed ? 'new' : 'old');

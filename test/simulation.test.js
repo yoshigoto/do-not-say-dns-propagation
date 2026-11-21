@@ -113,7 +113,7 @@ test('address change does not mention parent delegation', () => {
   assert.ok(state.activities.some(activity =>
     activity.actor === 'フルサービスリゾルバー' &&
     /キャッシュは空または期限切れです/.test(activity.text) &&
-    /同じ権威サーバーに問い合わせます/.test(activity.text)
+    /同じ権威サーバーに A を問い合わせます/.test(activity.text)
   ));
   assert.ok(state.activities.every(({ actor, text }) => !/親ゾーン|委任|[旧新]権威サーバー/.test(`${actor} ${text}`)));
 });
