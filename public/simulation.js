@@ -24,19 +24,19 @@ export function change(state) {
   if (state.changed) return;
   state.changed = true;
   state.events = [state.scenario === 'address'
-    ? `権威サーバーの ${state.type} レコードを新しいアドレスに変更しました。既存のキャッシュは書き換わりません。`
-    : '親ゾーンの委任先を新しい権威サーバーに変更しました。古い権威サーバーは古い答えを返し続けます。'];
+    ? `Web サーバーの IP アドレスの変更に合わせ、権威サーバーの ${state.type} リソースレコードを更新しました。既存のキャッシュは書き換わりません。`
+    : '親ゾーンの NS リソースレコードを変更し、新しい権威サーバーに委任しました。委任情報をキャッシュしているフルサービスリゾルバーは、期限が切れるまで旧サーバーを使うことがあります。'];
 }
 
 export function advance(state, seconds) {
   state.time += seconds;
-  state.events = [`シミュレーションの時計を ${seconds} 秒進めました。期限切れのキャッシュは次のアクセス時に更新されます。`];
+  state.events = [`シミュレーションの時計を ${seconds} 秒進めました。期限切れのキャッシュは必要に応じて次のアクセス時に再取得されます。`];
 }
 
 export function clearBrowser(state) {
   state.browserDns = null;
   state.browserHttp = null;
-  state.events = ['ブラウザーの DNS キャッシュと HTTP キャッシュを消去しました。リゾルバのキャッシュは残っています。'];
+  state.events = ['ブラウザーの DNS キャッシュと HTTP キャッシュを消去しました。フルサービスリゾルバーのキャッシュは残っています。'];
 }
 
 export function clearHttp(state) {
@@ -59,17 +59,17 @@ export function request(state) {
     cacheReason = 'browser-dns';
     events.push(`ブラウザーの DNS キャッシュから ${address} を使用。`);
   } else {
-    events.push('ブラウザーの DNS キャッシュは空または期限切れ。リゾルバに問い合わせます。');
+    events.push('ブラウザーの DNS キャッシュは空または期限切れ。フルサービスリゾルバーに問い合わせます。');
     if (valid(state.resolverAddress, state.time)) {
       address = state.resolverAddress.value;
       cacheReason = 'resolver';
-      events.push(`リゾルバの ${state.type} キャッシュから ${address} を返答。`);
+      events.push(`フルサービスリゾルバーの ${state.type} キャッシュから ${address} を応答。`);
     } else {
-      events.push(`リゾルバの ${state.type} キャッシュは空または期限切れ。`);
+      events.push(`フルサービスリゾルバーの ${state.type} キャッシュは空または期限切れ。`);
       let authority;
       if (valid(state.resolverDelegation, state.time)) {
         authority = state.resolverDelegation.value;
-        events.push(`リゾルバはキャッシュされた委任先（${authority === 'old' ? '旧' : '新'}権威サーバー）を使用。`);
+        events.push(`フルサービスリゾルバーはキャッシュされた委任情報（${authority === 'old' ? '旧' : '新'}権威サーバー）を使用。`);
       } else {
         authority = state.scenario === 'delegation' && state.changed ? 'new' : 'old';
         state.resolverDelegation = { value: authority, expires: state.time + TTL.delegation };
@@ -78,10 +78,10 @@ export function request(state) {
       const isNew = state.changed && (state.scenario === 'address' || authority === 'new');
       address = ADDRESSES[state.type][isNew ? 'new' : 'old'];
       state.resolverAddress = { value: address, expires: state.time + TTL.address };
-      events.push(`権威サーバーが ${state.type} ${address} を返答。リゾルバに ${TTL.address} 秒保存。`);
+      events.push(`権威サーバーが ${state.type} ${address} を応答。フルサービスリゾルバーに ${TTL.address} 秒保存。`);
     }
     state.browserDns = { value: address, expires: state.time + TTL.browserDns };
-    events.push(`ブラウザーに DNS の答えを ${TTL.browserDns} 秒保存。`);
+    events.push(`ブラウザーに DNS の応答を ${TTL.browserDns} 秒保存。`);
   }
   const page = address === ADDRESSES[state.type].new ? '新しいサーバー' : '古いサーバー';
   state.result = { address, page, source: 'Web サーバー', reason: cacheReason };

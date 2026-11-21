@@ -11,13 +11,13 @@ function cacheText(entry, label) {
 
 function render() {
   const isAddress = state.scenario === 'address';
-  $('#scenario-title').textContent = isAddress ? 'アドレスの変更' : '権威サーバーの移転';
+  $('#scenario-title').textContent = isAddress ? 'Web サーバーの IP アドレスの変更' : '権威サーバーの移転';
   $('#scenario-description').textContent = isAddress
-    ? '同じ権威サーバーで、Web サーバーのアドレスを変更します。'
-    : '親ゾーンの委任先を変更。旧権威は古い答え、新権威は新しい答えを返します。';
+    ? 'Web サーバーの IP アドレスを変更し、同じ権威サーバー上の A / AAAA リソースレコードを更新します。'
+    : '親ゾーンの NS リソースレコードを変更します。この例では旧権威サーバーが古い応答、新権威サーバーが新しい応答を返します。';
   $('#clock').textContent = `${String(Math.floor(state.time / 60)).padStart(2, '0')}:${String(state.time % 60).padStart(2, '0')}`;
   const browserCache = [
-    cacheText(state.browserDns, 'DNS解決結果'),
+    cacheText(state.browserDns, '名前解決結果'),
     state.browserHttp && remaining(state.browserHttp, state.time)
       ? `HTTP: ${state.browserHttp.value.page} · 残り ${remaining(state.browserHttp, state.time)}秒`
       : 'HTTP: なし / 期限切れ'
@@ -31,7 +31,7 @@ function render() {
   $('[data-resolver-cache]').replaceChildren(...resolverCache.map(line));
   $('#record-description').textContent = isAddress
     ? ''
-    : '権威サーバーの移転では、変更するのは親ゾーンの委任情報（旧・新権威サーバーに関する情報）です。上の A / AAAA レコードは、「旧権威」が古い答えを、「新権威」が新しい答えを返していることを示しています。';
+    : '変更するのは親ゾーンの NS リソースレコードです。上の A / AAAA は移転時に変更するリソースレコードではなく、旧・新権威サーバーが返す応答の例です。このデモでは委任とグルーレコードを 1 つのキャッシュとして扱い、旧権威サーバーが古い応答を返し続ける場合を示します。';
   renderRecordDisplay(isAddress);
   renderWebPreview();
   $('#change').disabled = state.changed;
@@ -75,16 +75,16 @@ function renderWebPreview() {
     $('#web-preview-explanation').textContent = 'HTTP キャッシュが有効なので、DNS 問い合わせもせず保存された表示をそのまま見ています。';
   } else if (result.reason === 'browser-dns') {
     $('#web-preview-explanation').textContent = isNew
-      ? 'ブラウザーの DNS キャッシュが新しいアドレスを指しているため、新しい表示になっています。'
-      : 'ブラウザーの DNS キャッシュが古いアドレスを指しているため、古い表示のままです。';
+      ? 'ブラウザーの DNS キャッシュに新しい IP アドレスがあるため、新しい表示になっています。'
+      : 'ブラウザーの DNS キャッシュに古い IP アドレスがあるため、古い表示のままです。';
   } else if (result.reason === 'resolver') {
     $('#web-preview-explanation').textContent = isNew
-      ? 'フルサービスリゾルバのキャッシュが新しいアドレスを指しているため、新しい表示になっています。'
-      : 'フルサービスリゾルバのキャッシュが有効なため、古い答えのまま表示しています。';
+      ? 'フルサービスリゾルバーのキャッシュに新しい IP アドレスがあるため、新しい表示になっています。'
+      : 'フルサービスリゾルバーのキャッシュに古い IP アドレスが残っているため、古い表示のままです。';
   } else if (isNew) {
-    $('#web-preview-explanation').textContent = '権威サーバーから新しいアドレスの答えを取得しました。';
+    $('#web-preview-explanation').textContent = '権威サーバーから新しい IP アドレスの応答を取得しました。';
   } else {
-    $('#web-preview-explanation').textContent = '権威サーバーから変更前のアドレスの答えを取得しました。';
+    $('#web-preview-explanation').textContent = '権威サーバーから古い IP アドレスの応答を取得しました。';
   }
 }
 
