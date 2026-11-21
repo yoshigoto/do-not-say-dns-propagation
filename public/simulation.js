@@ -80,10 +80,10 @@ export function request(state) {
   if (valid(state.browserDns, state.time)) {
     address = state.browserDns.value;
     cacheReason = 'browser-dns';
-    const text = `${httpMiss} DNS キャッシュは有効なので、保存されている ${address} を使います。`;
+    const text = `${httpMiss}DNS キャッシュは有効なので、保存されている ${address} を使います。`;
     activities.push({ actor: 'ブラウザー', text });
   } else {
-    const text = `${httpMiss} DNS キャッシュも空または期限切れです。フルサービスリゾルバーに問い合わせます。`;
+    const text = `${httpMiss}DNS キャッシュも空または期限切れです。フルサービスリゾルバーに問い合わせます。`;
     activities.push({ actor: 'ブラウザー', text });
     if (valid(state.resolverAddress, state.time)) {
       address = state.resolverAddress.value;
@@ -94,22 +94,22 @@ export function request(state) {
       let authorityLabel = '権威サーバー';
       let isNew = state.changed;
       const addressMiss = `${state.type} キャッシュは空または期限切れです。`;
-      let lookupText;
       if (state.scenario === 'address') {
-        lookupText = `${addressMiss} 同じ権威サーバーに ${state.type} を問い合わせます。`;
+        activities.push({ actor: 'フルサービスリゾルバー', text: `${addressMiss}同じ権威サーバーに ${state.type} を問い合わせます。` });
       } else {
         const cachedDelegation = valid(state.resolverDelegation, state.time);
         const authority = cachedDelegation ? state.resolverDelegation.value : (state.changed ? 'new' : 'old');
         authorityLabel = authority === 'old' ? '旧権威サーバー' : '新権威サーバー';
         isNew = state.changed && authority === 'new';
-        if (!cachedDelegation) {
+        if (cachedDelegation) {
+          activities.push({ actor: 'フルサービスリゾルバー', text: `${addressMiss}委任キャッシュは有効なので、保存されている委任先（${authorityLabel}）に問い合わせます。` });
+        } else {
           state.resolverDelegation = { value: authority, expires: state.time + TTL.delegation };
+          activities.push({ actor: 'フルサービスリゾルバー', text: `${addressMiss}委任キャッシュも空または期限切れです。親ゾーンの権威サーバーに委任先を問い合わせます。` });
+          activities.push({ actor: '親ゾーンの権威サーバー', text: `フルサービスリゾルバーからの問い合わせに応答し、委任先として${authorityLabel}を返しました。` });
+          activities.push({ actor: 'フルサービスリゾルバー', text: `受け取った委任情報を ${TTL.delegation} 秒間キャッシュし、${authorityLabel}に ${state.type} を問い合わせます。` });
         }
-        lookupText = cachedDelegation
-          ? `${addressMiss} 委任キャッシュは有効なので、保存されている委任先（${authorityLabel}）に問い合わせます。`
-          : `${addressMiss} 委任キャッシュも空または期限切れです。親ゾーンから取得した委任情報を ${TTL.delegation} 秒間キャッシュし、委任先（${authorityLabel}）に問い合わせます。`;
       }
-      activities.push({ actor: 'フルサービスリゾルバー', text: lookupText });
       address = ADDRESSES[state.type][isNew ? 'new' : 'old'];
       activities.push({ actor: authorityLabel, text: `フルサービスリゾルバーからの問い合わせに応答し、${state.type} ${address} を返しました。` });
       state.resolverAddress = { value: address, expires: state.time + TTL.address };

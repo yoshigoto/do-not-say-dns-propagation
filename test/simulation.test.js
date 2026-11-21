@@ -40,8 +40,11 @@ test('cached delegation can fetch an old answer even after the address TTL expir
   clearBrowser(state);
   request(state);
   assert.equal(state.result.address, ADDRESSES.A.new);
-  assert.match(state.activities[1].text, /親ゾーンから取得した委任情報.*新権威サーバー/);
-  assert.equal(state.activities[2].actor, '新権威サーバー');
+  assert.deepEqual(state.activities.slice(1, 5).map(({ actor }) => actor), [
+    'フルサービスリゾルバー', '親ゾーンの権威サーバー', 'フルサービスリゾルバー', '新権威サーバー'
+  ]);
+  assert.match(state.activities[2].text, /委任先として新権威サーバーを返しました/);
+  assert.match(state.activities[3].text, /委任情報を 180 秒間キャッシュし、新権威サーバーに A を問い合わせます/);
 });
 
 test('browser DNS cache and HTTP cache are independent of resolver cache', () => {
@@ -69,7 +72,7 @@ test('clearing only HTTP cache exposes a browser DNS cache hit', () => {
   clearHttp(state);
   request(state);
   assert.equal(state.result.address, ADDRESSES.A.old);
-  assert.match(state.events[0], /HTTP キャッシュは空または期限切れです。 DNS キャッシュは有効/);
+  assert.match(state.events[0], /HTTP キャッシュは空または期限切れです。DNS キャッシュは有効/);
   assert.equal(remaining(state.resolverAddress, state.time), TTL.address);
 });
 
@@ -161,7 +164,8 @@ test('DNS answer, forwarding and caching are logged once in order by their actor
   for (const [scenario, authority] of [['address', '権威サーバー'], ['delegation', '旧権威サーバー']]) {
     const state = createSimulation(scenario);
     request(state);
-    const [, , answer, forward, receive] = state.activities;
+    const answerIndex = state.activities.findIndex(({ actor }) => actor === authority);
+    const [answer, forward, receive] = state.activities.slice(answerIndex);
     assert.equal(answer.actor, authority);
     assert.doesNotMatch(answer.text, /キャッシュ|ブラウザー/);
     assert.equal(forward.actor, 'フルサービスリゾルバー');
