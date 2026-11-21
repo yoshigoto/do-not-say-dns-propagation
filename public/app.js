@@ -1,4 +1,4 @@
-import { ADDRESSES, advance, change, clearBrowser, clearHttp, createSimulation, remaining, request } from './simulation.js';
+import { ADDRESSES, TTL, advance, change, clearBrowser, clearHttp, createSimulation, remaining, request } from './simulation.js';
 
 let state = createSimulation();
 const $ = (selector) => document.querySelector(selector);
@@ -32,7 +32,7 @@ function render() {
   $('[data-resolver-cache]').replaceChildren(...resolverCache.map(line));
   $('#record-description').textContent = isAddress
     ? ''
-    : '権威サーバーの移転では、変更するのは親ゾーンの委任先（旧・新権威サーバー）です。上の A / AAAA レコードは、旧権威が古い答えを、新権威が新しい答えを返すための表示です。';
+    : '権威サーバーの移転では、変更するのは親ゾーンの委任情報（旧・新権威サーバーに関する情報）です。上の A / AAAA レコードは、「旧権威」が古い答えを、「新権威」が新しい答えを返していることを示しています。';
   renderRecordDisplay(isAddress);
   renderWebPreview();
   $('#change').disabled = state.changed;
@@ -108,7 +108,7 @@ function renderRecordDisplay(isAddress) {
     const typeLabel = document.createElement('strong');
     typeLabel.textContent = type;
     const addressLabel = document.createElement('span');
-    addressLabel.textContent = address;
+    addressLabel.textContent = `${address} (TTL ${TTL.address}秒)`;
     const statusLabel = document.createElement('small');
     statusLabel.textContent = status;
     row.append(typeLabel, addressLabel, statusLabel);
