@@ -8,8 +8,15 @@ export function createSimulation(scenario = 'address', type = 'A') {
   return {
     scenario, type, time: 0, changed: false,
     browserDns: null, browserHttp: null, resolverAddress: null, resolverDelegation: null,
-    result: null, events: ['準備完了。まず「サイトにアクセス」を押してキャッシュを作りましょう。']
+    result: null,
+    events: ['準備完了。まず「サイトにアクセス」を押してキャッシュを作りましょう。'],
+    activities: [{ actor: 'シミュレーター', text: '準備完了。まず「サイトにアクセス」を押してキャッシュを作りましょう。' }]
   };
+}
+
+function setActivities(state, activities) {
+  state.activities = activities;
+  state.events = activities.map(activity => activity.text);
 }
 
 function valid(entry, time) {
@@ -23,32 +30,48 @@ export function remaining(entry, time) {
 export function change(state) {
   if (state.changed) return;
   state.changed = true;
-  state.events = [state.scenario === 'address'
-    ? `Web サーバーの IP アドレスの変更に合わせ、権威サーバーの ${state.type} リソースレコードを更新しました。既存のキャッシュは書き換わりません。`
-    : '親ゾーンの NS リソースレコードを変更し、新しい権威サーバーに委任しました。委任情報をキャッシュしているフルサービスリゾルバーは、期限が切れるまで旧サーバーを使うことがあります。'];
+  setActivities(state, [{
+    actor: 'DNS 管理者',
+    text: state.scenario === 'address'
+      ? `Web サーバーの IP アドレスの変更に合わせ、権威サーバーの ${state.type} リソースレコードを更新しました。既存のキャッシュは書き換わりません。`
+      : '親ゾーンの NS リソースレコードを変更し、新しい権威サーバーに委任しました。委任情報をキャッシュしているフルサービスリゾルバーは、期限が切れるまで旧サーバーを使うことがあります。'
+  }]);
 }
 
 export function advance(state, seconds) {
   state.time += seconds;
-  state.events = [`シミュレーションの時計を ${seconds} 秒進めました。期限切れのキャッシュは必要に応じて次のアクセス時に再取得されます。`];
+  setActivities(state, [{
+    actor: '利用者',
+    text: `シミュレーションの時計を ${seconds} 秒進めました。期限切れのキャッシュは必要に応じて次のアクセス時に再取得されます。`
+  }]);
 }
 
 export function clearBrowser(state) {
   state.browserDns = null;
   state.browserHttp = null;
-  state.events = ['ブラウザーの DNS キャッシュと HTTP キャッシュを消去しました。フルサービスリゾルバーのキャッシュは残っています。'];
+  setActivities(state, [{
+    actor: '利用者',
+    text: 'ブラウザーの DNS キャッシュと HTTP キャッシュを消去しました。フルサービスリゾルバーのキャッシュは残っています。'
+  }]);
 }
 
 export function clearHttp(state) {
   state.browserHttp = null;
-  state.events = ['ブラウザーの HTTP キャッシュだけを消去しました。DNS キャッシュは残っています。'];
+  setActivities(state, [{
+    actor: '利用者',
+    text: 'ブラウザーの HTTP キャッシュだけを消去しました。DNS キャッシュは残っています。'
+  }]);
 }
 
 export function request(state) {
   const events = [];
+  const activities = [];
   if (valid(state.browserHttp, state.time)) {
     state.result = { ...state.browserHttp.value, source: 'HTTP キャッシュ', reason: 'http' };
-    state.events = ['ブラウザーの HTTP キャッシュが有効なので、DNS 問い合わせもサーバーへの通信も行わず、保存されたページを表示しました。'];
+    setActivities(state, [{
+      actor: 'ブラウザー',
+      text: 'HTTP キャッシュが有効です。DNS 問い合わせやサーバーへの通信をせず、保存されたページを表示しました。'
+    }]);
     return;
   }
 
@@ -57,35 +80,50 @@ export function request(state) {
   if (valid(state.browserDns, state.time)) {
     address = state.browserDns.value;
     cacheReason = 'browser-dns';
-    events.push(`ブラウザーの DNS キャッシュから ${address} を使用。`);
+    const text = `ブラウザーの DNS キャッシュが有効です。ブラウザーの DNS キャッシュから ${address} を使用しました。`;
+    events.push(text);
+    activities.push({ actor: 'ブラウザー', text });
   } else {
-    events.push('ブラウザーの DNS キャッシュは空または期限切れ。フルサービスリゾルバーに問い合わせます。');
+    const text = 'DNS キャッシュは空または期限切れです。フルサービスリゾルバーに問い合わせます。';
+    events.push(text);
+    activities.push({ actor: 'ブラウザー', text });
     if (valid(state.resolverAddress, state.time)) {
       address = state.resolverAddress.value;
       cacheReason = 'resolver';
-      events.push(`フルサービスリゾルバーの ${state.type} キャッシュから ${address} を応答。`);
+      const text = `${state.type} キャッシュが有効です。キャッシュされた ${address} をブラウザーに応答しました。`;
+      events.push(text);
+      activities.push({ actor: 'フルサービスリゾルバー', text });
     } else {
-      events.push(`フルサービスリゾルバーの ${state.type} キャッシュは空または期限切れ。`);
       let authority;
       if (valid(state.resolverDelegation, state.time)) {
         authority = state.resolverDelegation.value;
-        events.push(`フルサービスリゾルバーはキャッシュされた委任情報（${authority === 'old' ? '旧' : '新'}権威サーバー）を使用。`);
+        const text = `${state.type} キャッシュは空または期限切れです。委任情報は有効なので、キャッシュされた${authority === 'old' ? '旧' : '新'}権威サーバーに問い合わせます。`;
+        events.push(text);
+        activities.push({ actor: 'フルサービスリゾルバー', text });
       } else {
         authority = state.scenario === 'delegation' && state.changed ? 'new' : 'old';
         state.resolverDelegation = { value: authority, expires: state.time + TTL.delegation };
-        events.push(`親ゾーンの委任先を確認し、${authority === 'old' ? '旧' : '新'}権威サーバーをキャッシュ。`);
+        const text = `${state.type} キャッシュと委任情報は空または期限切れです。親ゾーンの委任先を確認し、${authority === 'old' ? '旧' : '新'}権威サーバーをキャッシュして問い合わせます。`;
+        events.push(text);
+        activities.push({ actor: 'フルサービスリゾルバー', text });
       }
       const isNew = state.changed && (state.scenario === 'address' || authority === 'new');
       address = ADDRESSES[state.type][isNew ? 'new' : 'old'];
       state.resolverAddress = { value: address, expires: state.time + TTL.address };
-      events.push(`権威サーバーが ${state.type} ${address} を応答。フルサービスリゾルバーに ${TTL.address} 秒保存。`);
+      const text = `${authority === 'old' ? '旧' : '新'}権威サーバーからの問い合わせに対し、${state.type} ${address} を応答しました。フルサービスリゾルバーは ${TTL.address} 秒保存します。`;
+      events.push(text);
+      activities.push({ actor: '権威サーバー', text });
     }
     state.browserDns = { value: address, expires: state.time + TTL.browserDns };
-    events.push(`ブラウザーに DNS の応答を ${TTL.browserDns} 秒保存。`);
+    const browserCacheText = `DNS の応答 ${address} をブラウザーに返し、ブラウザーは ${TTL.browserDns} 秒保存します。`;
+    events.push(browserCacheText);
+    activities.push({ actor: 'ブラウザー', text: browserCacheText });
   }
   const page = address === ADDRESSES[state.type].new ? '新しいサーバー' : '古いサーバー';
   state.result = { address, page, source: 'Web サーバー', reason: cacheReason };
   state.browserHttp = { value: { address, page }, expires: state.time + TTL.browserHttp };
-  events.push(`${address} に接続し、${page}のページを取得。HTTP キャッシュに ${TTL.browserHttp} 秒保存。`);
-  state.events = events;
+  const text = `${address} に接続し、${page}のページを取得しました。ブラウザーは HTTP キャッシュに ${TTL.browserHttp} 秒保存します。`;
+  events.push(text);
+  activities.push({ actor: 'Web サーバー', text });
+  setActivities(state, activities);
 }

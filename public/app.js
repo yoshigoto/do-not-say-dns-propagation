@@ -37,13 +37,21 @@ function render() {
   $('#change').disabled = state.changed;
   $('#change span').textContent = state.changed ? '変更済み' : '設定を変更する';
   $$('#events li').forEach(item => item.remove());
-  state.events.forEach((event, index) => {
+  const activities = state.activities || state.events.map(text => ({ actor: 'シミュレーター', text }));
+  activities.forEach((activity, index) => {
     const item = document.createElement('li');
     const number = document.createElement('span');
+    number.className = 'event-number';
     number.textContent = String(index + 1).padStart(2, '0');
+    const actor = document.createElement('span');
+    actor.className = 'event-actor';
+    actor.textContent = activity.actor;
+    const content = document.createElement('div');
+    content.className = 'event-content';
     const text = document.createElement('p');
-    text.textContent = event;
-    item.append(number, text);
+    text.textContent = activity.text;
+    content.append(text);
+    item.append(number, actor, content);
     $('#events').append(item);
   });
   $$('[data-scenario]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.scenario === state.scenario)));

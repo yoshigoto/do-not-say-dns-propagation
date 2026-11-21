@@ -68,3 +68,32 @@ test('clearing only HTTP cache exposes a browser DNS cache hit', () => {
   assert.match(state.events[0], /ブラウザーの DNS キャッシュから/);
   assert.equal(remaining(state.resolverAddress, state.time), TTL.address);
 });
+
+test('activity records include the actor that performed each operation', () => {
+  const state = createSimulation();
+  request(state);
+  assert.equal(state.activities[0].actor, 'ブラウザー');
+  change(state);
+  assert.equal(state.activities[0].actor, 'DNS 管理者');
+  clearBrowser(state);
+  assert.equal(state.activities[0].actor, '利用者');
+});
+
+test('cache status and its corresponding action are in the same activity', () => {
+  const state = createSimulation();
+  request(state);
+  assert.ok(state.activities.some(activity =>
+    activity.actor === 'ブラウザー' &&
+    /DNS キャッシュは空または期限切れです/.test(activity.text) &&
+    /フルサービスリゾルバーに問い合わせます/.test(activity.text)
+  ));
+  clearBrowser(state);
+  advance(state, TTL.address);
+  clearBrowser(state);
+  request(state);
+  assert.ok(state.activities.some(activity =>
+    activity.actor === 'フルサービスリゾルバー' &&
+    /キャッシュは空または期限切れです/.test(activity.text) &&
+    /権威サーバーに問い合わせます/.test(activity.text)
+  ));
+});
