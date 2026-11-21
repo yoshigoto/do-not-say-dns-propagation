@@ -1,5 +1,5 @@
 :root{font-family:"Noto Sans JP",sans-serif;color:#172b2a;background:#f4f6f2;font-synthesis:none}
-.record-address-inactive{color:#a39487;text-decoration:line-through}
+.record-address-inactive{color:#807165;text-decoration:line-through}
 *{box-sizing:border-box}
 body{margin:0}
 button{font:inherit;cursor:pointer}
