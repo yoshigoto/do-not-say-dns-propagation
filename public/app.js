@@ -88,11 +88,11 @@ function renderWebPreview() {
       : 'フルサービスリゾルバのキャッシュが有効なため、古い答えのまま表示しています。';
     $('#web-preview-cache').textContent = 'RESOLVER CACHE HIT';
   } else if (isNew) {
-    $('#web-preview-explanation').textContent = 'キャッシュが期限切れになり、権威サーバーから新しい答えを取得しました。';
-    $('#web-preview-cache').textContent = 'CACHE EXPIRED → NEW';
+    $('#web-preview-explanation').textContent = '権威サーバーから新しいアドレスの答えを取得しました。';
+    $('#web-preview-cache').textContent = 'AUTHORITATIVE → NEW';
   } else {
-    $('#web-preview-explanation').textContent = 'キャッシュまたは古い委任先により、権威サーバーから古い答えを取得しました。';
-    $('#web-preview-cache').textContent = 'OLD ANSWER STILL CACHED';
+    $('#web-preview-explanation').textContent = '権威サーバーから変更前のアドレスの答えを取得しました。';
+    $('#web-preview-cache').textContent = 'AUTHORITATIVE → OLD';
   }
 }
 
