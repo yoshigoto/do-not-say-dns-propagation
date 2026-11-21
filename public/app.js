@@ -26,8 +26,13 @@ function render() {
   const delegation = state.resolverDelegation && remaining(state.resolverDelegation, state.time)
     ? `${state.resolverDelegation.value === 'old' ? '旧' : '新'}権威 · 残り ${remaining(state.resolverDelegation, state.time)}秒`
     : 'なし / 期限切れ';
-  const resolverCache = [cacheText(state.resolverAddress, state.type), `委任先: ${delegation}`];
+  const resolverCache = isAddress
+    ? [cacheText(state.resolverAddress, state.type)]
+    : [`委任先: ${delegation}`];
   $('[data-resolver-cache]').replaceChildren(...resolverCache.map(line));
+  $('#record-description').textContent = isAddress
+    ? ''
+    : '権威サーバーの移転では、変更するのは親ゾーンの委任先（旧・新権威サーバー）です。上の A / AAAA レコードは、旧権威が古い答えを、新権威が新しい答えを返すための表示です。';
   renderRecordDisplay(isAddress);
   renderWebPreview();
   $('#change').disabled = state.changed;
