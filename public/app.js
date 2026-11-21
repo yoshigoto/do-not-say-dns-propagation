@@ -1,4 +1,4 @@
-import { ADDRESSES, advance, change, clearBrowser, createSimulation, remaining, request } from './simulation.js';
+import { ADDRESSES, advance, change, clearBrowser, clearHttp, createSimulation, remaining, request } from './simulation.js';
 
 let state = createSimulation();
 const $ = (selector) => document.querySelector(selector);
@@ -60,6 +60,7 @@ function line(text) {
 $('#request').addEventListener('click', () => { request(state); render(); });
 $('#change').addEventListener('click', () => { change(state); render(); });
 $('#clear').addEventListener('click', () => { clearBrowser(state); render(); });
+$('#clear-http').addEventListener('click', () => { clearHttp(state); render(); });
 $('#reset').addEventListener('click', () => { state = createSimulation(state.scenario, state.type); render(); });
 $$('[data-advance]').forEach(button => button.addEventListener('click', () => { advance(state, Number(button.dataset.advance)); render(); }));
 $$('[data-scenario]').forEach(button => button.addEventListener('click', () => { state = createSimulation(button.dataset.scenario, state.type); render(); }));

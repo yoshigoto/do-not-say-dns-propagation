@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import { strict as assert } from 'node:assert';
-import { ADDRESSES, TTL, advance, change, clearBrowser, createSimulation, remaining, request } from '../public/simulation.js';
+import { ADDRESSES, TTL, advance, change, clearBrowser, clearHttp, createSimulation, remaining, request } from '../public/simulation.js';
 
 test('address change keeps old cached answers until they expire for A and AAAA', () => {
   for (const type of ['A', 'AAAA']) {
@@ -54,4 +54,15 @@ test('browser DNS cache and HTTP cache are independent of resolver cache', () =>
   clearBrowser(state);
   request(state);
   assert.equal(state.result.address, ADDRESSES.A.new);
+});
+
+test('clearing only HTTP cache exposes a browser DNS cache hit', () => {
+  const state = createSimulation();
+  request(state);
+  change(state);
+  clearHttp(state);
+  request(state);
+  assert.equal(state.result.address, ADDRESSES.A.old);
+  assert.match(state.events[0], /ブラウザーの DNS キャッシュから/);
+  assert.equal(remaining(state.resolverAddress, state.time), TTL.address);
 });

@@ -39,6 +39,11 @@ export function clearBrowser(state) {
   state.events = ['ブラウザーの DNS キャッシュと HTTP キャッシュを消去しました。リゾルバのキャッシュは残っています。'];
 }
 
+export function clearHttp(state) {
+  state.browserHttp = null;
+  state.events = ['ブラウザーの HTTP キャッシュだけを消去しました。DNS キャッシュは残っています。'];
+}
+
 export function request(state) {
   const events = [];
   if (valid(state.browserHttp, state.time)) {

@@ -12,7 +12,13 @@ const host = process.env.HOST || '127.0.0.1';
 const port = Number(process.env.PORT || 3000);
 
 createServer(async (request, response) => {
-  const path = new URL(request.url, 'http://localhost').pathname;
+  let path;
+  try {
+    path = new URL(request.url, 'http://localhost').pathname;
+  } catch {
+    response.writeHead(400).end('Bad request');
+    return;
+  }
   if (!Object.hasOwn(files, path)) {
     response.writeHead(404).end('Not found');
     return;
