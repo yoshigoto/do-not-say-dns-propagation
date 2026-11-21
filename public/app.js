@@ -98,23 +98,24 @@ function renderRecordDisplay(isAddress) {
   const values = ['A', 'AAAA'].flatMap(type => {
     if (!isAddress) {
       return [
-        [type, ADDRESSES[type].old, '旧権威'],
-        [type, ADDRESSES[type].new, '新権威']
+        [type, ADDRESSES[type].old, '旧権威', state.changed],
+        [type, ADDRESSES[type].new, '新権威', !state.changed]
       ];
     }
     const isNew = state.changed && type === state.type;
-    return [[type, ADDRESSES[type][isNew ? 'new' : 'old'], isNew ? '変更後' : '現在']];
+    return [[type, ADDRESSES[type][isNew ? 'new' : 'old'], isNew ? '変更後' : '現在', false]];
   });
   const delegation = isAddress
     ? []
     : [line(`親ゾーンの現在の委任先: ${state.changed ? '新' : '旧'}権威`)];
-  $('#record-display').replaceChildren(...delegation, ...values.map(([type, address, status]) => {
+  $('#record-display').replaceChildren(...delegation, ...values.map(([type, address, status, inactive]) => {
     const row = document.createElement('div');
     row.className = 'record-row';
     const typeLabel = document.createElement('strong');
     typeLabel.textContent = type;
     const addressLabel = document.createElement('span');
     addressLabel.textContent = `${address} (TTL ${TTL.address}秒)`;
+    if (inactive) addressLabel.className = 'record-address-inactive';
     const statusLabel = document.createElement('small');
     statusLabel.textContent = status;
     row.append(typeLabel, addressLabel, statusLabel);
