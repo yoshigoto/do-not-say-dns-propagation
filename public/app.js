@@ -26,9 +26,8 @@ function render() {
   const delegation = state.resolverDelegation && remaining(state.resolverDelegation, state.time)
     ? `${state.resolverDelegation.value === 'old' ? '旧' : '新'}権威 · 残り ${remaining(state.resolverDelegation, state.time)}秒`
     : 'なし / 期限切れ';
-  const resolverCache = isAddress
-    ? [cacheText(state.resolverAddress, state.type)]
-    : [`委任先: ${delegation}`];
+  const resolverCache = [cacheText(state.resolverAddress, state.type)];
+  if (!isAddress) resolverCache.push(`委任先: ${delegation}`);
   $('[data-resolver-cache]').replaceChildren(...resolverCache.map(line));
   $('#record-description').textContent = isAddress
     ? ''
