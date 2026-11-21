@@ -1,4 +1,4 @@
-import { ADDRESSES, advance, change, clearBrowser, clearHttp, createSimulation, remaining, request } from './simulation.js';
+import { ADDRESSES, TTL, advance, change, clearBrowser, clearHttp, createSimulation, remaining, request } from './simulation.js';
 
 let state = createSimulation();
 const $ = (selector) => document.querySelector(selector);
@@ -15,26 +15,24 @@ function render() {
   $('#scenario-description').textContent = isAddress
     ? '同じ権威サーバーで、Web サーバーのアドレスを変更します。'
     : '親ゾーンの委任先を変更。旧権威は古い答え、新権威は新しい答えを返します。';
-  $('#type-label').textContent = state.type;
   $('#clock').textContent = `${String(Math.floor(state.time / 60)).padStart(2, '0')}:${String(state.time % 60).padStart(2, '0')}`;
-  $('#browser-status').replaceChildren(...[
-    cacheText(state.browserDns, 'DNS'),
+  const browserCache = [
+    cacheText(state.browserDns, 'DNS解決結果'),
     state.browserHttp && remaining(state.browserHttp, state.time)
       ? `HTTP: ${state.browserHttp.value.page} · 残り ${remaining(state.browserHttp, state.time)}秒`
       : 'HTTP: なし / 期限切れ'
-  ].map(line));
+  ];
+  $('[data-browser-cache]').replaceChildren(...browserCache.map(line));
   const delegation = state.resolverDelegation && remaining(state.resolverDelegation, state.time)
     ? `${state.resolverDelegation.value === 'old' ? '旧' : '新'}権威 · 残り ${remaining(state.resolverDelegation, state.time)}秒`
     : 'なし / 期限切れ';
-  $('#resolver-status').replaceChildren(line(cacheText(state.resolverAddress, state.type)), line(`委任先: ${delegation}`));
-  $('#authority-description').textContent = isAddress ? '権威ゾーンの現在の答え' : '親ゾーンの現在の委任先';
-  $('#authority-status').replaceChildren(...(isAddress
-    ? [`${state.type}: ${ADDRESSES[state.type][state.changed ? 'new' : 'old']}`, '委任先: 変更なし']
-    : [`委任先: ${state.changed ? '新' : '旧'}権威`, `旧: ${ADDRESSES[state.type].old}`, `新: ${ADDRESSES[state.type].new}`]
-  ).map(line));
-  $('#web-status').replaceChildren(...(state.result
-    ? [state.result.page, state.result.address, `表示元: ${state.result.source}`]
-    : ['まだアクセスしていません']).map(line));
+  const resolverCache = [cacheText(state.resolverAddress, state.type)];
+  if (!isAddress) resolverCache.push(`委任先: ${delegation}`);
+  $('[data-resolver-cache]').replaceChildren(...resolverCache.map(line));
+  $('#record-description').textContent = isAddress
+    ? ''
+    : '権威サーバーの移転では、変更するのは親ゾーンの委任情報（旧・新権威サーバーに関する情報）です。上の A / AAAA レコードは、「旧権威」が古い答えを、「新権威」が新しい答えを返していることを示しています。';
+  renderRecordDisplay(isAddress);
   renderWebPreview();
   $('#change').disabled = state.changed;
   $('#change span').textContent = state.changed ? '変更済み' : '設定を変更する';
@@ -61,7 +59,6 @@ function renderWebPreview() {
     $('#web-preview-page').textContent = 'Waiting...';
     $('#web-preview-address').textContent = 'サイトにアクセスすると表示例が更新されます。';
     $('#web-preview-explanation').textContent = 'まだアクセスしていません。';
-    $('#web-preview-cache').textContent = 'CACHE ≠ PROPAGATION';
     return;
   }
 
@@ -76,23 +73,18 @@ function renderWebPreview() {
 
   if (result.reason === 'http') {
     $('#web-preview-explanation').textContent = 'HTTP キャッシュが有効なので、DNS 問い合わせもせず保存された表示をそのまま見ています。';
-    $('#web-preview-cache').textContent = 'HTTP CACHE HIT';
   } else if (result.reason === 'browser-dns') {
     $('#web-preview-explanation').textContent = isNew
       ? 'ブラウザーの DNS キャッシュが新しいアドレスを指しているため、新しい表示になっています。'
       : 'ブラウザーの DNS キャッシュが古いアドレスを指しているため、古い表示のままです。';
-    $('#web-preview-cache').textContent = 'BROWSER DNS CACHE';
   } else if (result.reason === 'resolver') {
     $('#web-preview-explanation').textContent = isNew
       ? 'フルサービスリゾルバのキャッシュが新しいアドレスを指しているため、新しい表示になっています。'
       : 'フルサービスリゾルバのキャッシュが有効なため、古い答えのまま表示しています。';
-    $('#web-preview-cache').textContent = 'RESOLVER CACHE HIT';
   } else if (isNew) {
     $('#web-preview-explanation').textContent = '権威サーバーから新しいアドレスの答えを取得しました。';
-    $('#web-preview-cache').textContent = 'AUTHORITATIVE → NEW';
   } else {
     $('#web-preview-explanation').textContent = '権威サーバーから変更前のアドレスの答えを取得しました。';
-    $('#web-preview-cache').textContent = 'AUTHORITATIVE → OLD';
   }
 }
 
@@ -102,12 +94,57 @@ function line(text) {
   return element;
 }
 
+function renderRecordDisplay(isAddress) {
+  const values = ['A', 'AAAA'].flatMap(type => {
+    if (!isAddress) {
+      return [
+        [type, ADDRESSES[type].old, '旧権威'],
+        [type, ADDRESSES[type].new, '新権威']
+      ];
+    }
+    const isNew = state.changed && type === state.type;
+    return [[type, ADDRESSES[type][isNew ? 'new' : 'old'], isNew ? '変更後' : '現在']];
+  });
+  const delegation = isAddress
+    ? []
+    : [line(`親ゾーンの現在の委任先: ${state.changed ? '新' : '旧'}権威`)];
+  $('#record-display').replaceChildren(...delegation, ...values.map(([type, address, status]) => {
+    const row = document.createElement('div');
+    row.className = 'record-row';
+    const typeLabel = document.createElement('strong');
+    typeLabel.textContent = type;
+    const addressLabel = document.createElement('span');
+    addressLabel.textContent = `${address} (TTL ${TTL.address}秒)`;
+    const statusLabel = document.createElement('small');
+    statusLabel.textContent = status;
+    row.append(typeLabel, addressLabel, statusLabel);
+    return row;
+  }));
+}
+
+function setScenarioOptionsVisible(visible) {
+  $('#scenario-options').hidden = !visible;
+  $('#scenario-toggle').setAttribute('aria-expanded', String(visible));
+  $('#scenario-toggle').innerHTML = visible ? '選択内容を隠す <span>↑</span>' : '選択内容を再表示 <span>↓</span>';
+}
+
+$('#scenario-toggle').addEventListener('click', () => {
+  setScenarioOptionsVisible($('#scenario-options').hidden);
+});
 $('#request').addEventListener('click', () => { request(state); render(); });
 $('#change').addEventListener('click', () => { change(state); render(); });
 $('#clear').addEventListener('click', () => { clearBrowser(state); render(); });
 $('#clear-http').addEventListener('click', () => { clearHttp(state); render(); });
 $('#reset').addEventListener('click', () => { state = createSimulation(state.scenario, state.type); render(); });
 $$('[data-advance]').forEach(button => button.addEventListener('click', () => { advance(state, Number(button.dataset.advance)); render(); }));
-$$('[data-scenario]').forEach(button => button.addEventListener('click', () => { state = createSimulation(button.dataset.scenario, state.type); render(); }));
-$$('[data-type]').forEach(button => button.addEventListener('click', () => { state = createSimulation(state.scenario, button.dataset.type); render(); }));
+$$('[data-scenario]').forEach(button => button.addEventListener('click', () => {
+  state = createSimulation(button.dataset.scenario, state.type);
+  render();
+  setScenarioOptionsVisible(false);
+}));
+$$('[data-type]').forEach(button => button.addEventListener('click', () => {
+  state = createSimulation(state.scenario, button.dataset.type);
+  render();
+  setScenarioOptionsVisible(false);
+}));
 render();
