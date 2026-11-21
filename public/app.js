@@ -95,13 +95,20 @@ function line(text) {
 }
 
 function renderRecordDisplay(isAddress) {
-  const values = ['A', 'AAAA'].map(type => {
-    const isNew = state.changed && (!isAddress || type === state.type);
-    return [type, ADDRESSES[type][isNew ? 'new' : 'old'], isAddress
-      ? (isNew ? '変更後' : '現在')
-      : (isNew ? '新権威' : '旧権威')];
+  const values = ['A', 'AAAA'].flatMap(type => {
+    if (!isAddress) {
+      return [
+        [type, ADDRESSES[type].old, '旧権威'],
+        [type, ADDRESSES[type].new, '新権威']
+      ];
+    }
+    const isNew = state.changed && type === state.type;
+    return [[type, ADDRESSES[type][isNew ? 'new' : 'old'], isNew ? '変更後' : '現在']];
   });
-  $('#record-display').replaceChildren(...values.map(([type, address, status]) => {
+  const delegation = isAddress
+    ? []
+    : [line(`親ゾーンの現在の委任先: ${state.changed ? '新' : '旧'}権威`)];
+  $('#record-display').replaceChildren(...delegation, ...values.map(([type, address, status]) => {
     const row = document.createElement('div');
     row.className = 'record-row';
     const typeLabel = document.createElement('strong');
