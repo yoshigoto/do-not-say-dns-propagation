@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="DNS の変更とキャッシュの関係を操作して学ぶデモ">
+  <title>DNS キャッシュのひみつ</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/style.css">
+  <script type="module" src="/app.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/">DNS <span> / </span> CACHE LAB</a>
+    <span class="top-note"><span class="live-dot"></span> INTERACTIVE EXPLAINER</span>
+  </header>
+
+  <main>
+    <section class="intro">
+      <div>
+        <div class="eyebrow"><span>THE DNS MISCONCEPTION</span><span class="line"></span> 01 / 02</div>
+        <h1>「DNS浸透」の<br><em>正体を見てみよう。</em></h1>
+        <p>新しい設定がインターネットに広がるのを待つ？<br>実は、あちこちに残る「古い答え」がポイントです。</p>
+      </div>
+      <div class="intro-note"><span>✳</span><div><strong>これはシミュレーションです</strong><br>実際の DNS 設定やキャッシュは変更しません。</div></div>
+    </section>
+
+    <section class="workspace" aria-label="DNS キャッシュのシミュレーション">
+      <aside class="sidebar">
+        <div class="section-label"><span>01</span> シナリオを選ぶ</div>
+        <h2>何を変更する？</h2>
+        <div class="scenario-list" role="group" aria-label="シナリオ">
+          <button class="scenario" data-scenario="address" aria-pressed="true"><span class="scenario-icon">↗</span><span><strong>アドレスの変更</strong><small>A / AAAA レコードを変更</small></span><span class="scenario-arrow">↗</span></button>
+          <button class="scenario" data-scenario="delegation" aria-pressed="false"><span class="scenario-icon">⇄</span><span><strong>権威サーバーの移転</strong><small>親ゾーンの委任先を変更</small></span><span class="scenario-arrow">↗</span></button>
+        </div>
+        <div class="record-label">レコードタイプ <span>RECORD TYPE</span></div>
+        <div class="segmented" role="group" aria-label="レコードタイプ">
+          <button data-type="A" aria-pressed="true">A <small>IPv4</small></button>
+          <button data-type="AAAA" aria-pressed="false">AAAA <small>IPv6</small></button>
+        </div>
+        <div class="sidebar-tip"><span>i</span><p>シナリオやレコードタイプを切り替えると、デモは最初から始まります。</p></div>
+      </aside>
+
+      <div class="lab">
+        <div class="lab-header">
+          <div><div class="section-label"><span>02</span> 動きを観察する</div><h2 id="scenario-title">アドレスの変更</h2><p id="scenario-description"></p></div>
+          <div class="clock"><span>SIMULATION TIME</span><strong id="clock">00:00</strong></div>
+        </div>
+        <div class="instructions"><span>HOW TO PLAY</span> ① アクセスしてキャッシュを作る　→　② 設定を変更　→　③ 時間を進めて再アクセス</div>
+        <div class="diagram-heading"><span>NETWORK DIAGRAM</span><span>www.example.com <b id="type-label">A</b></span></div>
+        <div class="diagram">
+          <article class="node browser-node"><div class="node-top"><span class="node-icon">▣</span><span>CLIENT</span></div><h3>ブラウザー</h3><p>DNS とページを保存</p><div class="node-detail" id="browser-status"></div></article>
+          <div class="connector" aria-hidden="true">→</div>
+          <article class="node resolver-node"><div class="node-top"><span class="node-icon">◈</span><span>RECURSIVE DNS</span></div><h3>リゾルバ</h3><p>答えと委任先を保存</p><div class="node-detail" id="resolver-status"></div></article>
+          <div class="connector" aria-hidden="true">→</div>
+          <article class="node authority-node"><div class="node-top"><span class="node-icon">⬡</span><span>AUTHORITATIVE DNS</span></div><h3>権威サーバー</h3><p id="authority-description"></p><div class="node-detail" id="authority-status"></div></article>
+          <div class="connector" aria-hidden="true">→</div>
+          <article class="node web-node"><div class="node-top"><span class="node-icon">▤</span><span>DESTINATION</span></div><h3>Web サーバー</h3><p>取得したページ</p><div class="node-detail" id="web-status"></div></article>
+        </div>
+        <div class="actions">
+          <button class="primary" id="request">↗ <span>サイトにアクセス</span></button>
+          <button class="change" id="change">✳ <span>設定を変更する</span></button>
+          <div class="time-actions"><span>時間を進める</span><button data-advance="30">+30秒</button><button data-advance="60">+60秒</button><button data-advance="120">+120秒</button></div>
+        </div>
+        <div class="secondary-actions"><button id="clear">ブラウザーのキャッシュを消去</button><button id="reset">↺ リセット</button></div>
+      </div>
+    </section>
+
+    <section class="bottom-grid">
+      <div class="event-panel">
+        <div class="panel-heading"><div><div class="section-label"><span>03</span> 何が起きた？</div><h2>アクティビティ <span> / ACTIVITY LOG</span></h2></div><span class="log-badge">● LIVE</span></div>
+        <ol id="events" aria-live="polite"></ol>
+      </div>
+      <div class="learn-panel">
+        <div class="section-label"><span>✳</span> KEY TAKEAWAY</div>
+        <h2>「浸透」ではなく、<br>キャッシュの期限切れ。</h2>
+        <p>変更は権威側に反映されますが、問い合わせ側は TTL が残る間、以前の答えを使うことがあります。見る場所やタイミングによって答えが違うのはそのためです。</p>
+        <div class="learn-footer">CACHE ≠ PROPAGATION <span>↗</span></div>
+      </div>
+    </section>
+    <section class="details">
+      <h2>このデモのしくみ <span> / BEHIND THE SCENES</span></h2>
+      <div class="detail-grid">
+        <p><strong>01 / リゾルバのキャッシュ</strong>アドレスの TTL は 120 秒、親ゾーンの委任先の TTL は 180 秒。委任先が古いと、アドレスを再取得しても旧権威サーバーから古い答えを受け取ることがあります。</p>
+        <p><strong>02 / ブラウザーのキャッシュ</strong>このモデルでは DNS の答えを 30 秒、HTTP のページを 90 秒保存します。HTTP キャッシュが有効なら DNS に問い合わせずページを表示します。消去してもリゾルバのキャッシュは残ります。</p>
+        <p><strong>03 / 実際の運用では</strong>TTL やブラウザーのキャッシュ・接続再利用の挙動は製品や設定によって異なります。移転時は旧・新サーバーの応答を揃え、委任・グルー・各レコードの TTL を考慮しましょう。</p>
+      </div>
+    </section>
+  </main>
+  <footer><span>DNS / CACHE LAB</span><span>「待つ」の理由を、見える化する。</span></footer>
+</body>
+</html>
