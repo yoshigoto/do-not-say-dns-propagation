@@ -26,19 +26,28 @@
     </section>
 
     <section class="workspace" aria-label="DNS キャッシュのシミュレーション">
-      <aside class="sidebar">
-        <div class="section-label"><span>01</span> シナリオを選ぶ</div>
-        <h2>何を変更する？</h2>
-        <div class="scenario-list" role="group" aria-label="シナリオ">
-          <button class="scenario" data-scenario="address" aria-pressed="true"><span class="scenario-icon">↗</span><span><strong>アドレスの変更</strong><small>A / AAAA レコードを変更</small></span><span class="scenario-arrow">↗</span></button>
-          <button class="scenario" data-scenario="delegation" aria-pressed="false"><span class="scenario-icon">⇄</span><span><strong>権威サーバーの移転</strong><small>親ゾーンの委任先を変更</small></span><span class="scenario-arrow">↗</span></button>
+      <aside class="scenario-panel">
+        <div class="scenario-heading">
+          <div>
+            <div class="section-label"><span>01</span> シナリオを選ぶ</div>
+            <h2>何を変更する？</h2>
+          </div>
+          <button class="scenario-toggle" id="scenario-toggle" aria-expanded="true" aria-controls="scenario-options">選択内容を隠す <span>↑</span></button>
         </div>
-        <div class="record-label">レコードタイプ <span>RECORD TYPE</span></div>
-        <div class="segmented" role="group" aria-label="レコードタイプ">
-          <button data-type="A" aria-pressed="true">A <small>IPv4</small></button>
-          <button data-type="AAAA" aria-pressed="false">AAAA <small>IPv6</small></button>
+        <div class="scenario-options" id="scenario-options">
+          <div class="scenario-list" role="group" aria-label="シナリオ">
+            <button class="scenario" data-scenario="address" aria-pressed="true"><span class="scenario-icon">↗</span><span><strong>アドレスの変更</strong><small>A / AAAA レコードを変更</small></span><span class="scenario-arrow">↗</span></button>
+            <button class="scenario" data-scenario="delegation" aria-pressed="false"><span class="scenario-icon">⇄</span><span><strong>権威サーバーの移転</strong><small>親ゾーンの委任先を変更</small></span><span class="scenario-arrow">↗</span></button>
+          </div>
+          <div class="record-options">
+            <div class="record-label">レコードタイプ <span>RECORD TYPE</span></div>
+            <div class="segmented" role="group" aria-label="レコードタイプ">
+              <button data-type="A" aria-pressed="true">A <small>IPv4</small></button>
+              <button data-type="AAAA" aria-pressed="false">AAAA <small>IPv6</small></button>
+            </div>
+          </div>
+          <div class="sidebar-tip"><span>i</span><p>シナリオやレコードタイプを切り替えると、デモは最初から始まります。</p></div>
         </div>
-        <div class="sidebar-tip"><span>i</span><p>シナリオやレコードタイプを切り替えると、デモは最初から始まります。</p></div>
       </aside>
 
       <div class="lab">
@@ -47,19 +56,42 @@
           <div class="clock"><span>SIMULATION TIME</span><strong id="clock">00:00</strong></div>
         </div>
         <div class="instructions"><span>HOW TO PLAY</span> ① アクセスしてキャッシュを作る　→　② 設定を変更　→　③ 時間を進めて再アクセス</div>
-        <div class="diagram-heading"><span>NETWORK DIAGRAM</span><span>www.example.com <b id="type-label">A</b></span></div>
-        <div class="diagram">
-          <article class="node browser-node"><div class="node-top"><span class="node-icon">▣</span><span>CLIENT</span></div><h3>ブラウザー</h3><p>DNS とページを保存</p><div class="node-detail" id="browser-status"></div></article>
-          <div class="connector" aria-hidden="true">→</div>
-          <article class="node resolver-node"><div class="node-top"><span class="node-icon">◈</span><span>RECURSIVE DNS</span></div><h3>リゾルバ</h3><p>答えと委任先を保存</p><div class="node-detail" id="resolver-status"></div></article>
-          <div class="connector" aria-hidden="true">→</div>
-          <article class="node authority-node"><div class="node-top"><span class="node-icon">⬡</span><span>AUTHORITATIVE DNS</span></div><h3>権威サーバー</h3><p id="authority-description"></p><div class="node-detail" id="authority-status"></div></article>
-          <div class="connector" aria-hidden="true">→</div>
-          <article class="node web-node"><div class="node-top"><span class="node-icon">▤</span><span>DESTINATION</span></div><h3>Web サーバー</h3><p>取得したページ</p><div class="node-detail" id="web-status"></div></article>
+        <div class="observation-grid">
+          <section class="learn-panel page-panel" aria-labelledby="page-heading">
+            <div class="section-label"><span>✳</span> CURRENT BROWSER VIEW</div>
+            <h2 id="page-heading">今、ブラウザーに見えているページ</h2>
+            <div class="web-preview" id="web-preview" aria-live="polite">
+              <div class="web-preview-bar"><span></span><span></span><span></span><div>www.example.com</div></div>
+              <div class="web-preview-content">
+                <span class="web-preview-status" id="web-preview-status">未アクセス</span>
+                <strong id="web-preview-page">Waiting...</strong>
+                <small id="web-preview-address">サイトにアクセスすると表示例が更新されます。</small>
+              </div>
+            </div>
+            <p id="web-preview-explanation">まだアクセスしていません。</p>
+            <div class="cache-summary">
+              <div class="cache-summary-heading">ブラウザーキャッシュ</div>
+              <div class="cache-summary-status" data-browser-cache aria-live="polite"></div>
+            </div>
+            <button class="primary panel-action" id="request">↗ <span>サイトにアクセス</span></button>
+          </section>
+          <section class="resolver-panel" aria-labelledby="resolver-heading">
+            <div class="section-label"><span>◈</span> RECURSIVE DNS</div>
+            <h2 id="resolver-heading">リゾルバ</h2>
+            <p>答えと委任先を保存</p>
+            <div class="cache-summary resolver-summary">
+              <div class="cache-summary-heading">キャッシュ状態</div>
+              <div class="cache-summary-status" data-resolver-cache aria-live="polite"></div>
+            </div>
+          </section>
+          <section class="record-panel" aria-labelledby="record-heading">
+            <div class="section-label"><span>✳</span> AUTHORITATIVE RECORDS</div>
+            <h2 id="record-heading">権威サーバーの <span>A/AAAA</span> リソースレコード</h2>
+            <div class="record-display" id="record-display" aria-live="polite"></div>
+            <button class="change panel-action" id="change">✳ <span>設定を変更する</span></button>
+          </section>
         </div>
-        <div class="actions">
-          <button class="primary" id="request">↗ <span>サイトにアクセス</span></button>
-          <button class="change" id="change">✳ <span>設定を変更する</span></button>
+        <div class="time-control-row">
           <div class="time-actions"><span>時間を進める</span><button data-advance="30">+30秒</button><button data-advance="60">+60秒</button><button data-advance="120">+120秒</button></div>
         </div>
         <div class="secondary-actions"><button id="clear-http">HTTP キャッシュのみ消去</button><button id="clear">ブラウザーのキャッシュを消去</button><button id="reset">↺ リセット</button></div>
@@ -71,26 +103,24 @@
         <div class="panel-heading"><div><div class="section-label"><span>03</span> 何が起きた？</div><h2>アクティビティ <span> / ACTIVITY LOG</span></h2></div><span class="log-badge">● LIVE</span></div>
         <ol id="events" aria-live="polite"></ol>
       </div>
-      <div class="learn-panel">
-        <div class="section-label"><span>✳</span> KEY TAKEAWAY</div>
-        <h2>今、ブラウザーに見えているページ</h2>
-        <div class="web-preview" id="web-preview" aria-live="polite">
-          <div class="web-preview-bar"><span></span><span></span><span></span><div>www.example.com</div></div>
-          <div class="web-preview-content">
-            <span class="web-preview-status" id="web-preview-status">未アクセス</span>
-            <strong id="web-preview-page">Waiting...</strong>
-            <small id="web-preview-address">サイトにアクセスすると表示例が更新されます。</small>
-          </div>
+      <div class="network-panel">
+        <div class="diagram-heading"><span>NETWORK DIAGRAM</span><span>www.example.com <b id="type-label">A</b></span></div>
+        <div class="diagram">
+          <article class="node browser-node"><div class="node-top"><span class="node-icon">▣</span><span>CLIENT</span></div><h3>ブラウザー</h3><p>DNS とページを保存</p><div class="node-detail" id="browser-status"></div></article>
+          <div class="connector" aria-hidden="true">→</div>
+          <article class="node resolver-node"><div class="node-top"><span class="node-icon">◈</span><span>RECURSIVE DNS</span></div><h3>リゾルバ</h3><p>答えと委任先を保存</p><div class="node-detail" id="resolver-status"></div></article>
+          <div class="connector" aria-hidden="true">→</div>
+          <article class="node authority-node"><div class="node-top"><span class="node-icon">⬡</span><span>AUTHORITATIVE DNS</span></div><h3>権威サーバー</h3><p id="authority-description"></p><div class="node-detail" id="authority-status"></div></article>
+          <div class="connector" aria-hidden="true">→</div>
+          <article class="node web-node"><div class="node-top"><span class="node-icon">▤</span><span>DESTINATION</span></div><h3>Web サーバー</h3><p>取得したページ</p><div class="node-detail" id="web-status"></div></article>
         </div>
-        <p id="web-preview-explanation">まだアクセスしていません。</p>
-        <div class="learn-footer"><span id="web-preview-cache">CACHE ≠ PROPAGATION</span><span>↗</span></div>
       </div>
     </section>
     <section class="details">
       <h2>このデモのしくみ <span> / BEHIND THE SCENES</span></h2>
       <div class="detail-grid">
         <p><strong>01 / リゾルバのキャッシュ</strong>アドレスの TTL は 120 秒、親ゾーンの委任先の TTL は 180 秒。委任先が古いと、アドレスを再取得しても旧権威サーバーから古い答えを受け取ることがあります。</p>
-        <p><strong>02 / ブラウザーのキャッシュ</strong>このモデルでは DNS の答えを 30 秒、HTTP のページを 90 秒保存します。HTTP キャッシュが有効なら DNS に問い合わせずページを表示します。消去してもリゾルバのキャッシュは残ります。</p>
+        <p><strong>02 / ブラウザーのキャッシュ</strong>ブラウザーはドメイン名自体ではなく、名前解決で得た IP アドレスをキャッシュする場合があります。このモデルでは DNS の答えを 30 秒、HTTP のページを 90 秒保存します。HTTP キャッシュが有効なら DNS に問い合わせずページを表示します。実際にはブラウザー内部のキャッシュ、OS の DNS キャッシュ、接続再利用の挙動が重なり、保持時間も製品や設定によって異なります。ブラウザーのキャッシュを消去してもリゾルバのキャッシュは残ります。</p>
         <p><strong>03 / 実際の運用では</strong>TTL やブラウザーのキャッシュ・接続再利用の挙動は製品や設定によって異なります。移転時は旧・新サーバーの応答を揃え、委任・グルー・各レコードの TTL を考慮しましょう。</p>
       </div>
     </section>
