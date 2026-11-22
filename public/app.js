@@ -4,10 +4,9 @@ let state = createSimulation();
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => document.querySelectorAll(selector);
 
-function cacheLine(entry, label, key) {
+function cacheLine(entry, label) {
   const seconds = remaining(entry, state.time);
   const element = document.createElement('div');
-  element.dataset.focusKey = key;
   const value = entry?.value?.page ?? entry?.value;
   element.textContent = `${label}: ${seconds ? `${value} · 残り ${seconds}秒` : 'なし / 期限切れ'}`;
   return element;
@@ -39,16 +38,7 @@ function renderInspection() {
     item.append(number, label, role);
     return item;
   }));
-  $$('[data-focus-key]').forEach(element => {
-    element.classList.remove('focus-path', 'focus-source');
-  });
-  inspection.steps.forEach(step => {
-    if (step.role === 'unchanged') return;
-    $$(`[data-focus-key="${step.key}"]`).forEach(element => {
-      element.classList.add('focus-path');
-      if (step.role === 'source' || step.role === 'changed') element.classList.add('focus-source');
-    });
-  });
+  $('#clock').classList.toggle('focus-path', inspection.steps.some(step => step.key === 'clock'));
 }
 
 function render() {
@@ -64,19 +54,17 @@ function render() {
     ? '権威サーバーの <span>A/AAAA</span> リソースレコード'
     : '親ゾーンの委任先と <span>A/AAAA</span> の応答例';
   $('#clock').textContent = `${String(Math.floor(state.time / 60)).padStart(2, '0')}:${String(state.time % 60).padStart(2, '0')}`;
-  $('#clock').dataset.focusKey = 'clock';
   const browserCache = [
-    cacheLine(state.browserHttp, 'HTTP', 'browser-http'),
-    cacheLine(state.browserDns, '名前解決結果', 'browser-dns')
+    cacheLine(state.browserHttp, 'HTTP'),
+    cacheLine(state.browserDns, '名前解決結果')
   ];
   $('[data-browser-cache]').replaceChildren(...browserCache);
-  const resolverCache = [cacheLine(state.resolverAddress, state.type, 'resolver-address')];
+  const resolverCache = [cacheLine(state.resolverAddress, state.type)];
   if (!isAddress) {
     const delegationText = state.resolverDelegation && remaining(state.resolverDelegation, state.time)
       ? `${state.resolverDelegation.value === 'old' ? '旧' : '新'}権威 · 残り ${remaining(state.resolverDelegation, state.time)}秒`
       : 'なし / 期限切れ';
     const delegation = document.createElement('div');
-    delegation.dataset.focusKey = 'resolver-delegation';
     delegation.textContent = `委任先: ${delegationText}`;
     resolverCache.push(delegation);
   }
@@ -113,19 +101,19 @@ function render() {
 
 function renderWebPreview() {
   const preview = $('#web-preview');
-  preview.dataset.focusKey = 'page';
   const result = state.result;
+  const isNew = result?.address === ADDRESSES[state.type].new;
+  const page = result ? (isNew ? 'new' : 'old') : 'waiting';
+  preview.classList.toggle('focus-path', page !== 'waiting' && page !== preview.dataset.page);
+  preview.dataset.page = page;
+
   if (!result) {
-    preview.dataset.page = 'waiting';
     $('#web-preview-status').textContent = '未アクセス';
     $('#web-preview-page').textContent = 'Waiting...';
     $('#web-preview-address').textContent = 'サイトにアクセスすると表示例が更新されます。';
     $('#web-preview-explanation').textContent = 'まだアクセスしていません。';
     return;
   }
-
-  const isNew = result.address === ADDRESSES[state.type].new;
-  preview.dataset.page = isNew ? 'new' : 'old';
 
   $('#web-preview-status').textContent = result.source === 'HTTP キャッシュ'
     ? 'HTTP キャッシュ'
