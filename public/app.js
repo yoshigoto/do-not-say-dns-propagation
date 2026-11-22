@@ -205,6 +205,6 @@ $$('[data-scenario]').forEach(button => button.addEventListener('click', () => {
 $$('[data-type]').forEach(button => button.addEventListener('click', () => {
   state = createSimulation(state.scenario, button.dataset.type);
   render();
-  setScenarioOptionsVisible(false);
+  setScenarioOptionsVisible(true);
 }));
 render();
