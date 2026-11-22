@@ -41,6 +41,7 @@
           <div class="scenario-list" role="group" aria-label="シナリオ">
             <button class="scenario" data-scenario="address" aria-pressed="true"><span class="scenario-icon">↗</span><span><strong>Web サーバーの IP アドレスの変更</strong><small>同じ権威サーバーの A / AAAA を更新</small></span><span class="scenario-arrow">↗</span></button>
             <button class="scenario" data-scenario="delegation" aria-pressed="false"><span class="scenario-icon">⇄</span><span><strong>権威サーバーの移転</strong><small>親ゾーンの委任情報を変更</small></span><span class="scenario-arrow">↗</span></button>
+            <button class="scenario" data-scenario="negative" aria-pressed="false"><span class="scenario-icon">?</span><span><strong>ネガティブキャッシュ</strong><small>レコード追加前の NXDOMAIN をキャッシュ</small></span><span class="scenario-arrow">↗</span></button>
           </div>
           <div class="record-options">
             <div class="record-label">レコードタイプ <span>RECORD TYPE</span></div>
@@ -114,6 +115,7 @@
         <p><strong>01 / フルサービスリゾルバーのキャッシュ</strong>IP アドレスのリソースレコードの TTL は 120 秒、委任情報の TTL は 180 秒。委任情報が古いと、IP アドレスを再取得しても旧権威サーバーから古い応答を受け取ることがあります。このデモでは NS リソースレコードによる委任とグルーレコードを 1 つのキャッシュとして簡略化しています。</p>
         <p><strong>02 / ブラウザーのキャッシュ</strong>ブラウザーはドメイン名自体ではなく、名前解決で得た IP アドレスをキャッシュする場合があります。このモデルでは DNS の応答を 30 秒間、HTTP のページを 90 秒間保存します。HTTP キャッシュが有効なら DNS に問い合わせずページを表示します。実際にはブラウザー内部のキャッシュ、OS の DNS キャッシュ、接続再利用の挙動が重なり、保持時間も製品や設定によって異なります。ブラウザーのキャッシュを消去してもフルサービスリゾルバーのキャッシュは残います。</p>
         <p><strong>03 / 実際の運用では</strong>TTL やブラウザーのキャッシュ・接続再利用の挙動は製品や設定によって異なります。移転前に新サーバーのゾーンデータを整え、旧・新サーバーの応答を揃えましょう。親ゾーンの委任情報、必要なグルーレコード、各リソースレコードの TTL も考慮します。</p>
+        <p><strong>04 / ネガティブキャッシュ</strong>名前が存在しないという NXDOMAIN 応答も、応答に含まれる SOA 情報に基づいてフルサービスリゾルバーにキャッシュされます。レコードを追加してもキャッシュは即時に更新されず、保持時間が過ぎてからの問い合わせで新しいレコードが取得されます。このシナリオではネガティブキャッシュの TTL を 120 秒とし、ブラウザー側の失敗結果キャッシュは扱いません。</p>
       </div>
     </section>
   </main>

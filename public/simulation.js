@@ -1,4 +1,4 @@
-export const TTL = { browserDns: 30, browserHttp: 90, address: 120, delegation: 180 };
+export const TTL = { browserDns: 30, browserHttp: 90, address: 120, delegation: 180, negative: 120 };
 export const ADDRESSES = {
   A: { old: '192.0.2.10', new: '192.0.2.20' },
   AAAA: { old: '2001:db8::10', new: '2001:db8::20' }
@@ -7,7 +7,7 @@ export const ADDRESSES = {
 export function createSimulation(scenario = 'address', type = 'A') {
   return {
     scenario, type, time: 0, changed: false,
-    browserDns: null, browserHttp: null, resolverAddress: null, resolverDelegation: null,
+    browserDns: null, browserHttp: null, resolverAddress: null, resolverDelegation: null, resolverNegative: null,
     result: null, cacheUsed: null,
     events: ['準備完了。まず「サイトにアクセス」を押してキャッシュを作りましょう。'],
     activities: [{ actor: 'シミュレーター', text: '準備完了。まず「サイトにアクセス」を押してキャッシュを作りましょう。' }]
@@ -35,7 +35,9 @@ export function change(state) {
     actor: 'DNS 管理者',
     text: state.scenario === 'address'
       ? `Web サーバーの IP アドレスの変更に合わせ、権威サーバーの ${state.type} リソースレコードを更新しました。既存のキャッシュは書き換わりません。`
-      : '親ゾーンの NS リソースレコードを変更し、新しい権威サーバーに委任しました。旧委任先をキャッシュしているフルサービスリゾルバーは、その期限が切れるまで旧権威サーバーに問い合わせることがあります。'
+      : state.scenario === 'delegation'
+        ? '親ゾーンの NS リソースレコードを変更し、新しい権威サーバーに委任しました。旧委任先をキャッシュしているフルサービスリゾルバーは、その期限が切れるまで旧権威サーバーに問い合わせることがあります。'
+        : `権威サーバーに ${state.type} リソースレコードを追加しました。すでに保存されたネガティブキャッシュは書き換わりません。`
   }]);
 }
 
@@ -75,6 +77,28 @@ export function request(state) {
     return;
   }
 
+  if (state.scenario === 'negative') {
+    activities.push({ actor: 'ブラウザー', text: 'HTTP キャッシュは空または期限切れです。名前解決のためフルサービスリゾルバーに問い合わせます。' });
+    if (valid(state.resolverNegative, state.time)) {
+      state.result = { notFound: true, source: 'フルサービスリゾルバー', reason: 'negative-cache' };
+      activities.push({ actor: 'フルサービスリゾルバー', text: `ネガティブキャッシュが有効です。保存されている「ドメイン名が存在しない（NXDOMAIN）」という応答をブラウザーに返しました。残り ${remaining(state.resolverNegative, state.time)} 秒です。` });
+      setActivities(state, activities, 'resolver-negative');
+      return;
+    }
+
+    if (!state.changed) {
+      activities.push({ actor: 'フルサービスリゾルバー', text: 'ネガティブキャッシュは空または期限切れです。権威サーバーに問い合わせます。' });
+      activities.push({ actor: '権威サーバー', text: '問い合わせられたドメイン名は存在しません。NXDOMAIN と SOA 情報を返しました。' });
+      state.resolverNegative = { value: 'NXDOMAIN', expires: state.time + TTL.negative };
+      activities.push({ actor: 'フルサービスリゾルバー', text: `NXDOMAIN 応答をネガティブキャッシュに ${TTL.negative} 秒間保存し、ブラウザーに返しました。` });
+      state.result = { notFound: true, source: '権威サーバー', reason: 'authoritative-nxdomain' };
+      setActivities(state, activities);
+      return;
+    }
+
+    state.resolverNegative = null;
+  }
+
   let address;
   let cacheReason = 'authoritative';
   let cacheUsed = null;
@@ -98,7 +122,7 @@ export function request(state) {
       let authorityLabel = '権威サーバー';
       let isNew = state.changed;
       const addressMiss = `${state.type} キャッシュは空または期限切れです。`;
-      if (state.scenario === 'address') {
+      if (state.scenario !== 'delegation') {
         activities.push({ actor: 'フルサービスリゾルバー', text: `${addressMiss}同じ権威サーバーに ${state.type} を問い合わせます。` });
       } else {
         const cachedDelegation = valid(state.resolverDelegation, state.time);

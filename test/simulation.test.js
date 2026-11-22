@@ -224,3 +224,34 @@ test('a newly fetched delegation is not marked as a cache hit', () => {
   assert.equal(state.cacheUsed, null);
   assert.equal(state.result.address, ADDRESSES.A.new);
 });
+
+test('negative cache continues to return NXDOMAIN after a record is added until its TTL expires', () => {
+  for (const type of ['A', 'AAAA']) {
+    const state = createSimulation('negative', type);
+    request(state);
+    assert.equal(state.result.reason, 'authoritative-nxdomain');
+    assert.equal(state.resolverNegative.value, 'NXDOMAIN');
+    assert.equal(remaining(state.resolverNegative, state.time), TTL.negative);
+    assert.deepEqual(state.activities.map(({ actor }) => actor), [
+      'ブラウザー', 'フルサービスリゾルバー', '権威サーバー', 'フルサービスリゾルバー'
+    ]);
+
+    change(state);
+    clearBrowser(state);
+    request(state);
+    assert.equal(state.result.reason, 'negative-cache');
+    assert.equal(state.cacheUsed, 'resolver-negative');
+    assert.match(state.activities[1].text, /NXDOMAIN/);
+    assert.equal(state.resolverNegative.value, 'NXDOMAIN');
+
+    advance(state, TTL.negative);
+    clearBrowser(state);
+    request(state);
+    assert.equal(state.result.address, ADDRESSES[type].new);
+    assert.equal(state.result.reason, 'authoritative');
+    assert.equal(state.resolverNegative, null);
+    assert.ok(state.activities.some(({ actor, text }) =>
+      actor === '権威サーバー' && text.includes(`${type} ${ADDRESSES[type].new}`)
+    ));
+  }
+});

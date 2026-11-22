@@ -25,34 +25,48 @@ function cacheLine(entry, label, key, formatValue = value => value) {
 
 function render() {
   const isAddress = state.scenario === 'address';
-  $('#scenario-title').textContent = isAddress ? 'Web サーバーの IP アドレスの変更' : '権威サーバーの移転';
+  const isDelegation = state.scenario === 'delegation';
+  const isNegative = state.scenario === 'negative';
+  $('#scenario-title').textContent = isAddress
+    ? 'Web サーバーの IP アドレスの変更'
+    : isDelegation ? '権威サーバーの移転' : 'ネガティブキャッシュ';
   $('#scenario-description').textContent = isAddress
     ? 'Web サーバーの IP アドレスを変更し、同じ権威サーバー上の A / AAAA リソースレコードを更新します。'
-    : '親ゾーンの NS リソースレコードを変更します。この例では旧権威サーバーが古い応答、新権威サーバーが新しい応答を返します。';
+    : isDelegation
+      ? '親ゾーンの NS リソースレコードを変更します。この例では旧権威サーバーが古い応答、新権威サーバーが新しい応答を返します。'
+      : 'A / AAAA リソースレコードを追加する前にアクセスし、存在しないという応答（NXDOMAIN）がキャッシュされる様子を確認します。';
   $('#resolver-description').textContent = isAddress
     ? '名前解決結果をキャッシュ'
-    : '名前解決結果と委任情報をキャッシュ';
+    : isDelegation ? '名前解決結果と委任情報をキャッシュ' : '名前解決結果と NXDOMAIN をキャッシュ';
   $('#record-heading').innerHTML = isAddress
     ? '権威サーバーの <span>A/AAAA</span> リソースレコード'
-    : '親ゾーンの委任先と <span>A/AAAA</span> の応答例';
+    : isDelegation
+      ? '親ゾーンの委任先と <span>A/AAAA</span> の応答例'
+      : `権威サーバーの <span>${state.type}</span> リソースレコード`;
   $('#clock').textContent = `${String(Math.floor(state.time / 60)).padStart(2, '0')}:${String(state.time % 60).padStart(2, '0')}`;
   const browserCache = [
     cacheLine(state.browserHttp, 'HTTP', 'browser-http', value => value.page),
     cacheLine(state.browserDns, '名前解決結果', 'browser-dns')
   ];
   $('[data-browser-cache]').replaceChildren(...browserCache);
-  const resolverCache = [cacheLine(state.resolverAddress, state.type, 'resolver-address')];
-  if (!isAddress) {
+  const resolverCache = isNegative
+    ? [cacheLine(state.resolverNegative, 'ネガティブキャッシュ', 'resolver-negative', value => value)]
+    : [cacheLine(state.resolverAddress, state.type, 'resolver-address')];
+  if (isDelegation) {
     resolverCache.push(cacheLine(state.resolverDelegation, '委任先', 'resolver-delegation', value => value === 'old' ? '旧権威' : '新権威'));
   }
   $('[data-resolver-cache]').replaceChildren(...resolverCache);
   $('#record-description').textContent = isAddress
     ? ''
-    : '変更するのは親ゾーンの NS リソースレコードです。上の A / AAAA は移転時に変更するリソースレコードではなく、旧・新権威サーバーが返す応答の例です。このデモでは委任とグルーレコードを 1 つのキャッシュとして扱い、旧権威サーバーが古い応答を返し続ける場合を示します。';
+    : isDelegation
+      ? '変更するのは親ゾーンの NS リソースレコードです。上の A / AAAA は移転時に変更するリソースレコードではなく、旧・新権威サーバーが返す応答の例です。このデモでは委任とグルーレコードを 1 つのキャッシュとして扱い、旧権威サーバーが古い応答を返し続ける場合を示します。'
+      : `「${state.type} レコードを追加する」前はレコードがありません。権威サーバーの NXDOMAIN 応答に含まれる SOA 情報を使ったネガティブキャッシュを、このデモでは ${TTL.negative} 秒として簡略化しています。ブラウザー側の失敗結果キャッシュは扱いません。`;
   renderRecordDisplay(isAddress);
   renderWebPreview();
   $('#change').disabled = state.changed;
-  $('#change span').textContent = state.changed ? '変更済み' : '設定を変更する';
+  $('#change span').textContent = isNegative
+    ? state.changed ? 'レコード追加済み' : `${state.type} レコードを追加する`
+    : state.changed ? '変更済み' : '設定を変更する';
   $$('#events li').forEach(item => item.remove());
   const activities = state.activities || state.events.map(text => ({ actor: 'シミュレーター', text }));
   activities.forEach((activity, index) => {
@@ -78,6 +92,17 @@ function render() {
 function renderWebPreview() {
   const preview = $('#web-preview');
   const result = state.result;
+  if (result?.notFound) {
+    preview.classList.remove('focus-path');
+    preview.dataset.page = 'not-found';
+    $('#web-preview-status').textContent = 'NXDOMAIN';
+    $('#web-preview-page').textContent = 'サイトが見つかりません';
+    $('#web-preview-address').textContent = 'ドメイン名が存在しません';
+    $('#web-preview-explanation').textContent = result.reason === 'negative-cache'
+      ? 'フルサービスリゾルバーのネガティブキャッシュが有効なため、レコード追加後も NXDOMAIN が返されています。'
+      : '権威サーバーに A / AAAA リソースレコードがなく、NXDOMAIN が返されました。';
+    return;
+  }
   const isNew = result?.address === ADDRESSES[state.type].new;
   const page = result ? (isNew ? 'new' : 'old') : 'waiting';
   preview.classList.toggle('focus-path', page !== 'waiting' && page !== preview.dataset.page);
@@ -122,6 +147,13 @@ function line(text) {
 }
 
 function renderRecordDisplay(isAddress) {
+  if (state.scenario === 'negative') {
+    const row = line(state.changed
+      ? `${state.type} ${ADDRESSES[state.type].new} (TTL ${TTL.address}秒) · 追加済み`
+      : `${state.type} リソースレコードなし`);
+    $('#record-display').replaceChildren(row);
+    return;
+  }
   const values = ['A', 'AAAA'].flatMap(type => {
     if (!isAddress) {
       return [
