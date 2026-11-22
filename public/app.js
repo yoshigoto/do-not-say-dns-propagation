@@ -43,6 +43,7 @@ function renderInspection() {
     element.classList.remove('focus-path', 'focus-source');
   });
   inspection.steps.forEach(step => {
+    if (step.role === 'unchanged') return;
     $$(`[data-focus-key="${step.key}"]`).forEach(element => {
       element.classList.add('focus-path');
       if (step.role === 'source' || step.role === 'changed') element.classList.add('focus-source');
