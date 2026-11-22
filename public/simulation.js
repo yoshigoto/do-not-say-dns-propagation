@@ -8,15 +8,16 @@ export function createSimulation(scenario = 'address', type = 'A') {
   return {
     scenario, type, time: 0, changed: false,
     browserDns: null, browserHttp: null, resolverAddress: null, resolverDelegation: null,
-    result: null,
+    result: null, cacheUsed: null,
     events: ['準備完了。まず「サイトにアクセス」を押してキャッシュを作りましょう。'],
     activities: [{ actor: 'シミュレーター', text: '準備完了。まず「サイトにアクセス」を押してキャッシュを作りましょう。' }]
   };
 }
 
-function setActivities(state, activities) {
+function setActivities(state, activities, cacheUsed = null) {
   state.activities = activities;
   state.events = activities.map(activity => activity.text);
+  state.cacheUsed = cacheUsed;
 }
 
 function valid(entry, time) {
@@ -70,16 +71,18 @@ export function request(state) {
     setActivities(state, [{
       actor: 'ブラウザー',
       text: 'HTTP キャッシュが有効です。DNS 問い合わせやサーバーへの通信をせず、保存されたページを表示しました。'
-    }]);
+    }], 'browser-http');
     return;
   }
 
   let address;
   let cacheReason = 'authoritative';
+  let cacheUsed = null;
   const httpMiss = 'HTTP キャッシュは空または期限切れです。';
   if (valid(state.browserDns, state.time)) {
     address = state.browserDns.value;
     cacheReason = 'browser-dns';
+    cacheUsed = 'browser-dns';
     const text = `${httpMiss}DNS キャッシュは有効なので、保存されている ${address} を使います。`;
     activities.push({ actor: 'ブラウザー', text });
   } else {
@@ -88,6 +91,7 @@ export function request(state) {
     if (valid(state.resolverAddress, state.time)) {
       address = state.resolverAddress.value;
       cacheReason = 'resolver';
+      cacheUsed = 'resolver-address';
       const text = `${state.type} キャッシュが有効です。保存されている ${address} をブラウザーに返しました。`;
       activities.push({ actor: 'フルサービスリゾルバー', text });
     } else {
@@ -102,6 +106,7 @@ export function request(state) {
         authorityLabel = authority === 'old' ? '旧権威サーバー' : '新権威サーバー';
         isNew = state.changed && authority === 'new';
         if (cachedDelegation) {
+          cacheUsed = 'resolver-delegation';
           activities.push({ actor: 'フルサービスリゾルバー', text: `${addressMiss}委任キャッシュは有効なので、保存されている委任先（${authorityLabel}）に問い合わせます。` });
         } else {
           state.resolverDelegation = { value: authority, expires: state.time + TTL.delegation };
@@ -125,5 +130,5 @@ export function request(state) {
   state.browserHttp = { value: { address, page }, expires: state.time + TTL.browserHttp };
   const text = `Web サーバーの IP アドレス ${address} に接続し、${pageAge}ページを取得しました。このページを HTTP キャッシュに ${TTL.browserHttp} 秒間保存します。`;
   activities.push({ actor: 'ブラウザー', text });
-  setActivities(state, activities);
+  setActivities(state, activities, cacheUsed);
 }

@@ -182,3 +182,45 @@ test('DNS answer, forwarding and caching are logged once in order by their actor
     assert.match(state.activities[1].text, /キャッシュが有効です。.*ブラウザーに返しました/);
   }
 });
+
+test('each access identifies only the cache it actually used', () => {
+  const state = createSimulation();
+  request(state);
+  assert.equal(state.cacheUsed, null);
+
+  clearHttp(state);
+  request(state);
+  assert.equal(state.cacheUsed, 'browser-dns');
+
+  advance(state, TTL.browserDns);
+  assert.equal(state.cacheUsed, null);
+  assert.equal(remaining(state.browserDns, state.time), 0);
+  request(state);
+  assert.equal(state.cacheUsed, 'browser-http');
+  assert.equal(state.result.address, ADDRESSES.A.old);
+
+  clearBrowser(state);
+  assert.equal(state.cacheUsed, null);
+  request(state);
+  assert.equal(state.cacheUsed, 'resolver-address');
+
+  change(state);
+  assert.equal(state.cacheUsed, null);
+});
+
+test('a newly fetched delegation is not marked as a cache hit', () => {
+  const state = createSimulation('delegation');
+  request(state);
+  assert.equal(state.cacheUsed, null);
+
+  change(state);
+  advance(state, TTL.address);
+  request(state);
+  assert.equal(state.cacheUsed, 'resolver-delegation');
+  assert.equal(state.result.address, ADDRESSES.A.old);
+
+  advance(state, TTL.address);
+  request(state);
+  assert.equal(state.cacheUsed, null);
+  assert.equal(state.result.address, ADDRESSES.A.new);
+});
