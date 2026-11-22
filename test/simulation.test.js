@@ -182,3 +182,57 @@ test('DNS answer, forwarding and caching are logged once in order by their actor
     assert.match(state.activities[1].text, /キャッシュが有効です。.*ブラウザーに返しました/);
   }
 });
+
+test('inspection identifies the exact cache that answered an access', () => {
+  const state = createSimulation();
+  request(state);
+  assert.equal(state.inspection.steps.filter(({ role }) => role === 'result').length, 2);
+
+  request(state);
+  assert.deepEqual(
+    state.inspection.steps.filter(({ role }) => role === 'source').map(({ key }) => key),
+    ['browser-http']
+  );
+
+  clearHttp(state);
+  request(state);
+  assert.deepEqual(
+    state.inspection.steps.filter(({ role }) => role === 'source').map(({ key }) => key),
+    ['browser-dns']
+  );
+
+  clearBrowser(state);
+  request(state);
+  assert.deepEqual(
+    state.inspection.steps.filter(({ role }) => role === 'source').map(({ key }) => key),
+    ['resolver-address']
+  );
+});
+
+test('inspection marks caches that expire during a time advance', () => {
+  const state = createSimulation();
+  request(state);
+  advance(state, TTL.browserDns);
+
+  assert.equal(
+    state.inspection.steps.some(({ key, role }) => key === 'browser-dns' && role === 'expired'),
+    true
+  );
+  assert.equal(
+    state.inspection.steps.some(({ key, role }) => key === 'browser-http' && role === 'expired'),
+    false
+  );
+  assert.match(state.inspection.summary, /次に「サイトにアクセス」/);
+});
+
+test('change inspection separates the updated record from unchanged caches', () => {
+  const state = createSimulation();
+  request(state);
+  change(state);
+
+  assert.equal(state.inspection.steps[0].key, 'record');
+  assert.equal(state.inspection.steps[0].role, 'changed');
+  assert.ok(state.inspection.steps
+    .filter(({ key }) => key !== 'record')
+    .every(({ role }) => role === 'unchanged'));
+});
