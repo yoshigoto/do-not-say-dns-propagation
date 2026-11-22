@@ -183,56 +183,44 @@ test('DNS answer, forwarding and caching are logged once in order by their actor
   }
 });
 
-test('inspection identifies the exact cache that answered an access', () => {
+test('each access identifies only the cache it actually used', () => {
   const state = createSimulation();
   request(state);
-  assert.equal(state.inspection.steps.filter(({ role }) => role === 'result').length, 2);
-
-  request(state);
-  assert.deepEqual(
-    state.inspection.steps.filter(({ role }) => role === 'source').map(({ key }) => key),
-    ['browser-http']
-  );
+  assert.equal(state.cacheUsed, null);
 
   clearHttp(state);
   request(state);
-  assert.deepEqual(
-    state.inspection.steps.filter(({ role }) => role === 'source').map(({ key }) => key),
-    ['browser-dns']
-  );
+  assert.equal(state.cacheUsed, 'browser-dns');
+
+  advance(state, TTL.browserDns);
+  assert.equal(state.cacheUsed, null);
+  assert.equal(remaining(state.browserDns, state.time), 0);
+  request(state);
+  assert.equal(state.cacheUsed, 'browser-http');
+  assert.equal(state.result.address, ADDRESSES.A.old);
 
   clearBrowser(state);
+  assert.equal(state.cacheUsed, null);
   request(state);
-  assert.deepEqual(
-    state.inspection.steps.filter(({ role }) => role === 'source').map(({ key }) => key),
-    ['resolver-address']
-  );
-});
+  assert.equal(state.cacheUsed, 'resolver-address');
 
-test('inspection marks caches that expire during a time advance', () => {
-  const state = createSimulation();
-  request(state);
-  advance(state, TTL.browserDns);
-
-  assert.equal(
-    state.inspection.steps.some(({ key, role }) => key === 'browser-dns' && role === 'expired'),
-    true
-  );
-  assert.equal(
-    state.inspection.steps.some(({ key, role }) => key === 'browser-http' && role === 'expired'),
-    false
-  );
-  assert.match(state.inspection.summary, /次に「サイトにアクセス」/);
-});
-
-test('change inspection separates the updated record from unchanged caches', () => {
-  const state = createSimulation();
-  request(state);
   change(state);
+  assert.equal(state.cacheUsed, null);
+});
 
-  assert.equal(state.inspection.steps[0].key, 'record');
-  assert.equal(state.inspection.steps[0].role, 'changed');
-  assert.ok(state.inspection.steps
-    .filter(({ key }) => key !== 'record')
-    .every(({ role }) => role === 'unchanged'));
+test('a newly fetched delegation is not marked as a cache hit', () => {
+  const state = createSimulation('delegation');
+  request(state);
+  assert.equal(state.cacheUsed, null);
+
+  change(state);
+  advance(state, TTL.address);
+  request(state);
+  assert.equal(state.cacheUsed, 'resolver-delegation');
+  assert.equal(state.result.address, ADDRESSES.A.old);
+
+  advance(state, TTL.address);
+  request(state);
+  assert.equal(state.cacheUsed, null);
+  assert.equal(state.result.address, ADDRESSES.A.new);
 });

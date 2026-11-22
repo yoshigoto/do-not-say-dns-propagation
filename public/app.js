@@ -4,41 +4,23 @@ let state = createSimulation();
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => document.querySelectorAll(selector);
 
-function cacheLine(entry, label) {
-  const seconds = remaining(entry, state.time);
+function cacheRow(text, key) {
   const element = document.createElement('div');
-  const value = entry?.value?.page ?? entry?.value;
-  element.textContent = `${label}: ${seconds ? `${value} · 残り ${seconds}秒` : 'なし / 期限切れ'}`;
+  element.textContent = text;
+  if (state.cacheUsed === key) {
+    element.className = 'cache-used';
+    const badge = document.createElement('span');
+    badge.className = 'cache-used-badge';
+    badge.textContent = key === 'resolver-delegation' ? '問い合わせ先の決定に使用' : '今回の表示に使用';
+    element.append(' ', badge);
+  }
   return element;
 }
 
-function renderInspection() {
-  const inspection = state.inspection;
-  const roleLabels = {
-    source: '直接利用',
-    result: '結果',
-    check: '確認',
-    changed: '変更対象',
-    unchanged: '変更なし',
-    expired: '期限切れ',
-    cleared: '消去'
-  };
-  $('#focus-heading').textContent = inspection.title;
-  $('#focus-summary').textContent = inspection.summary;
-  $('#focus-steps').replaceChildren(...inspection.steps.map((step, index) => {
-    const item = document.createElement('li');
-    item.className = `focus-step role-${step.role}`;
-    const number = document.createElement('span');
-    number.className = 'focus-step-number';
-    number.textContent = String(index + 1).padStart(2, '0');
-    const label = document.createElement('strong');
-    label.textContent = step.label;
-    const role = document.createElement('small');
-    role.textContent = roleLabels[step.role];
-    item.append(number, label, role);
-    return item;
-  }));
-  $('#clock').classList.toggle('focus-path', inspection.steps.some(step => step.key === 'clock'));
+function cacheLine(entry, label, key, formatValue = value => value) {
+  const seconds = remaining(entry, state.time);
+  const status = seconds ? `${formatValue(entry.value)} · 残り ${seconds}秒` : (entry ? '期限切れ' : 'なし');
+  return cacheRow(`${label}: ${status}`, key);
 }
 
 function render() {
@@ -55,18 +37,13 @@ function render() {
     : '親ゾーンの委任先と <span>A/AAAA</span> の応答例';
   $('#clock').textContent = `${String(Math.floor(state.time / 60)).padStart(2, '0')}:${String(state.time % 60).padStart(2, '0')}`;
   const browserCache = [
-    cacheLine(state.browserHttp, 'HTTP'),
-    cacheLine(state.browserDns, '名前解決結果')
+    cacheLine(state.browserHttp, 'HTTP', 'browser-http', value => value.page),
+    cacheLine(state.browserDns, '名前解決結果', 'browser-dns')
   ];
   $('[data-browser-cache]').replaceChildren(...browserCache);
-  const resolverCache = [cacheLine(state.resolverAddress, state.type)];
+  const resolverCache = [cacheLine(state.resolverAddress, state.type, 'resolver-address')];
   if (!isAddress) {
-    const delegationText = state.resolverDelegation && remaining(state.resolverDelegation, state.time)
-      ? `${state.resolverDelegation.value === 'old' ? '旧' : '新'}権威 · 残り ${remaining(state.resolverDelegation, state.time)}秒`
-      : 'なし / 期限切れ';
-    const delegation = document.createElement('div');
-    delegation.textContent = `委任先: ${delegationText}`;
-    resolverCache.push(delegation);
+    resolverCache.push(cacheLine(state.resolverDelegation, '委任先', 'resolver-delegation', value => value === 'old' ? '旧権威' : '新権威'));
   }
   $('[data-resolver-cache]').replaceChildren(...resolverCache);
   $('#record-description').textContent = isAddress
@@ -74,7 +51,6 @@ function render() {
     : '変更するのは親ゾーンの NS リソースレコードです。上の A / AAAA は移転時に変更するリソースレコードではなく、旧・新権威サーバーが返す応答の例です。このデモでは委任とグルーレコードを 1 つのキャッシュとして扱い、旧権威サーバーが古い応答を返し続ける場合を示します。';
   renderRecordDisplay(isAddress);
   renderWebPreview();
-  renderInspection();
   $('#change').disabled = state.changed;
   $('#change span').textContent = state.changed ? '変更済み' : '設定を変更する';
   $$('#events li').forEach(item => item.remove());
@@ -118,11 +94,12 @@ function renderWebPreview() {
   $('#web-preview-status').textContent = result.source === 'HTTP キャッシュ'
     ? 'HTTP キャッシュ'
     : 'Web サーバーから取得';
-  $('#web-preview-page').textContent = isNew ? 'New page' : 'Old page';
+  const pageLabel = isNew ? 'New page' : 'Old page';
+  $('#web-preview-page').textContent = pageLabel;
   $('#web-preview-address').textContent = `${state.type} ${result.address}`;
 
   if (result.reason === 'http') {
-    $('#web-preview-explanation').textContent = 'HTTP キャッシュが有効なので、DNS 問い合わせもせず保存された表示をそのまま見ています。';
+    $('#web-preview-explanation').textContent = `前回のアクセスでは、HTTP キャッシュに残っていた ${pageLabel} を表示しました。名前解決結果の有効期限に関係なく、DNS への問い合わせは行いません。`;
   } else if (result.reason === 'browser-dns') {
     $('#web-preview-explanation').textContent = isNew
       ? 'ブラウザーの DNS キャッシュに新しい IP アドレスがあるため、新しい表示になっています。'
